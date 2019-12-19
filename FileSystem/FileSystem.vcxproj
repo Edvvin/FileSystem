@@ -117,6 +117,7 @@
   <ItemGroup>
     <ClInclude Include="file.h" />
     <ClInclude Include="fs.h" />
+    <ClInclude Include="kfile.h" />
     <ClInclude Include="kfs.h" />
     <ClInclude Include="part.h" />
     <ClInclude Include="testprimer.h" />
@@ -124,6 +125,7 @@
   <ItemGroup>
     <ClCompile Include="file.cpp" />
     <ClCompile Include="fs.cpp" />
+    <ClCompile Include="kfile.cpp" />
     <ClCompile Include="kfs.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="nit1.cpp" />

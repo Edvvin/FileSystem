@@ -4,8 +4,8 @@
 class KernelFS {
 public:
 	~KernelFS();
-	char mount(Partition* partition);
-	char unmount();
+	static char mount(Partition* partition, KernelFS*& kfs);
+	static char unmount(KernelFS*& kfs);
 	char format();
 	FileCnt readRootDir();
 	char doesExist(char* fname);

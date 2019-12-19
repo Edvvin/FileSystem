@@ -17,4 +17,4 @@ private:
 	friend class KernelFS;
 	File(); //objekat fajla se može kreirati samo otvaranjem
 	KernelFile *myImpl;
-};
+};
