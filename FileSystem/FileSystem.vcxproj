@@ -115,6 +115,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="bitvect.h" />
+    <ClInclude Include="cache.h" />
     <ClInclude Include="file.h" />
     <ClInclude Include="fs.h" />
     <ClInclude Include="kfile.h" />
@@ -123,6 +125,8 @@
     <ClInclude Include="testprimer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bitvect.cpp" />
+    <ClCompile Include="cache.cpp" />
     <ClCompile Include="file.cpp" />
     <ClCompile Include="fs.cpp" />
     <ClCompile Include="kfile.cpp" />

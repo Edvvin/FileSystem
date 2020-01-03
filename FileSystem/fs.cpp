@@ -3,6 +3,7 @@
 #include "part.h"
 #include "kfs.h"
 
+
 KernelFS* FS::myImpl = NULL;
 
 FS::~FS() {
@@ -10,48 +11,45 @@ FS::~FS() {
 }
 
 char FS::mount(Partition* partition) {
-	return KernelFS::mount(partition, myImpl);
+	return KernelFS::mount(partition);
 }
 char FS::unmount() {
-	if (myImpl == NULL) {
-		return 0;
-	}
-	return KernelFS::unmount(myImpl);
+	return KernelFS::unmount();
 }
 char FS::format() {
-	if (myImpl == NULL) {
+	if (KernelFS::mounted == NULL) {
 		return 0;
 	}
-	return myImpl->format();
+	return KernelFS::mounted->format();
 }
 
 
 FileCnt FS::readRootDir() {
-	if (myImpl == NULL) {
+	if (KernelFS::mounted == NULL) {
 		return 0;
 	}
-	return myImpl->readRootDir();
+	return KernelFS::mounted->readRootDir();
 }
 
 char FS::doesExist(char* fname) {
-	if (myImpl == NULL) {
+	if (KernelFS::mounted == NULL) {
 		return 0;
 	}
-	return myImpl->doesExist(fname);
+	return KernelFS::mounted->doesExist(fname);
 }
 
 File* FS::open(char* fname, char mode) {
-	if (myImpl == NULL) {
+	if (KernelFS::mounted == NULL) {
 		return 0;
 	}
-	//return myImpl->open(fname, mode);
+	return myImpl->open(fname, mode);
 }
 
 char FS::deleteFile(char* fname) {
-	if (myImpl == NULL) {
+	if (KernelFS::mounted == NULL) {
 		return 0;
 	}
-	return myImpl->deleteFile(fname);
+	return KernelFS::mounted->deleteFile(fname);
 }
 
 FS::FS() {

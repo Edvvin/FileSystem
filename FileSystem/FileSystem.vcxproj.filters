@@ -33,6 +33,12 @@
     <ClInclude Include="kfile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="cache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bitvect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="file.cpp">
@@ -54,6 +60,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="kfile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cache.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bitvect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
