@@ -87,6 +87,23 @@ void KernelFS::dealloc(ClusterNo target)
 	LeaveCriticalSection(&KernelFS_CS);
 }
 
+void KernelFS::dealloc(ClusterNo targets[], int cnt)
+{
+	if (!isInit) {
+		return;
+	}
+	EnterCriticalSection(&KernelFS_CS);
+	if (mounted == NULL) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return;
+	}
+	for (int i = 0; i < cnt; i++) {
+		bitVect->reset(targets[i]);
+	}
+	bitVect->writeThrough();
+	LeaveCriticalSection(&KernelFS_CS);
+}
+
 char KernelFS::format() {
 	if (!isInit) {
 		return 0;

@@ -25,6 +25,7 @@ public:
 
 	ClusterNo alloc();
 	void dealloc(ClusterNo);
+	void dealloc(ClusterNo targets[], int cnt);
 
 	char format();
 	FileCnt readRootDir();

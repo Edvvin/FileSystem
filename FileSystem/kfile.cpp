@@ -2,8 +2,10 @@
 
 
 
-KernelFile::KernelFile()
+KernelFile::KernelFile(char m)
 {
+	//TODO: add file to openFileTable
+
 }
 
 
