@@ -8,6 +8,7 @@ class Cache
 public:
 	
 	ClusterNo getNumOfClusters() const;
+	ClusterNo getCacheNumOfClusters() const;
 	int sync();
 	int readCluster(ClusterNo, char *buffer);
 	int writeCluster(ClusterNo, const char *buffer);

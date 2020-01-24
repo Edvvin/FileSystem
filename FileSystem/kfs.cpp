@@ -16,6 +16,8 @@ KernelFS::KernelFS(Partition* p) {
 }
 
 KernelFS::~KernelFS() {
+	delete bitVect;
+	delete cache;
 }
 
 char KernelFS::mount(Partition* partition) {
@@ -42,12 +44,13 @@ char KernelFS::unmount() {
 	}
 
 	while (mounted->FCBCnt) {
-		SleepConditionVariableCS(&openFilesExist, &KernelFS_CS, INFINITE);
+		SleepConditionVariableCS(&openFilesExist, &KernelFS_CS, INFINITE); // awake when FCBCnt == 0
 	}
 
 	if (mounted != NULL) {
 		delete mounted;
 		mounted = NULL;
+		WakeConditionVariable(&alreadyMounted);
 	}
 
 	LeaveCriticalSection(&KernelFS_CS);
@@ -67,8 +70,10 @@ ClusterNo KernelFS::alloc()
 	ClusterNo freeCluster = bitVect->find();
 	bitVect->set(freeCluster);
 	bitVect->writeThrough();
-	LeaveCriticalSection(&KernelFS_CS);
 
+
+	LeaveCriticalSection(&KernelFS_CS);
+	return freeCluster;
 }
 
 void KernelFS::dealloc(ClusterNo target)
@@ -81,7 +86,8 @@ void KernelFS::dealloc(ClusterNo target)
 		LeaveCriticalSection(&KernelFS_CS);
 		return;
 	}
-
+	if (target == 0)
+		exit(12345); // check
 	bitVect->reset(target);
 	bitVect->writeThrough();
 	LeaveCriticalSection(&KernelFS_CS);
@@ -114,19 +120,23 @@ char KernelFS::format() {
 		return 0;
 	}
 
-
 	char* emptyCluster = new char[ClusterSize];
 	memset(emptyCluster, 0, ClusterSize);
-
-
-	cache->writeCluster(0, emptyCluster);
-	cache->writeCluster(1, emptyCluster);
 	bitVect->clear();
-	bitVect->set(0);
-	bitVect->set(1);
+	unsigned i;
+	for (i = 0; i < cache->getNumOfClusters() / ClusterSize; i++)
+	{
+		cache->writeCluster(i, emptyCluster);
+		bitVect->set(i);
+	}
+	
+	cache->writeCluster(i, emptyCluster);
+	bitVect->set(i);
 	bitVect->writeThrough();
+	delete [] emptyCluster;
 	//TODO: probably smth related to the root dir
 	LeaveCriticalSection(&KernelFS_CS);
+	return 1;
 }
 FileCnt KernelFS::readRootDir() {
 	if (!isInit) {

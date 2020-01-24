@@ -7,25 +7,25 @@ File::~File() {
 }
 
 char File::write(BytesCnt cnt, char* buffer) {
-	myImpl->write(cnt, buffer);
+	return myImpl->write(cnt, buffer);
 }
 BytesCnt File::read(BytesCnt cnt, char* buffer) {
-	myImpl->read(cnt, buffer);
+	return myImpl->read(cnt, buffer);
 }
 char File::seek(BytesCnt cnt) {
-	myImpl->seek(cnt);
+	return myImpl->seek(cnt);
 }
 BytesCnt File::filePos() {
-	myImpl->filePos();
+	return myImpl->filePos();
 }
 char File::eof() {
-	myImpl->eof();
+	return myImpl->eof();
 }
 BytesCnt File::getFileSize() {
-	myImpl->getFileSize();
+	return myImpl->getFileSize();
 }
 char File::truncate() {
-	myImpl->truncate();
+	return myImpl->truncate();
 }
 
 File::File() {

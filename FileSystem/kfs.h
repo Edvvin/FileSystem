@@ -19,6 +19,7 @@ class KernelFS {
 
 public:
 	friend class FS;
+	friend class KernelFile;
 	static KernelFS* volatile mounted;
 	static char mount(Partition* partition); // Create the cache object, load bitVect
 	static char unmount(); // delete the cache object
