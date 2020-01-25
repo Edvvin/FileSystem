@@ -7,7 +7,9 @@
 #include "dir.h"
 KernelFS* volatile KernelFS::mounted = NULL;
 LONG volatile KernelFS::isInit = 0;
-
+CRITICAL_SECTION KernelFS::KernelFS_CS;
+CONDITION_VARIABLE KernelFS::alreadyMounted;
+CONDITION_VARIABLE KernelFS::openFilesExist;
 
 KernelFS::KernelFS(Partition* p) {
 	FCBCnt = 0;
