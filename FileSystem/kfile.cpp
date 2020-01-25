@@ -3,8 +3,9 @@
 #include "cache.h"
 
 
-KernelFile::KernelFile(char m)
+KernelFile::KernelFile(ClusterNo ind1Adr, char m)
 {
+	this->ind1Adr = ind1Adr;
 	cursorLoaded = 0;
 	switch (m) {
 	case 'r':

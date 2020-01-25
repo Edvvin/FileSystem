@@ -4,16 +4,17 @@
 //I might implement this
 class Cache
 {
+protected:
 	Partition* p;
 public:
 	
 	ClusterNo getNumOfClusters() const;
-	ClusterNo getCacheNumOfClusters() const;
-	int sync();
-	int readCluster(ClusterNo, char *buffer);
-	int writeCluster(ClusterNo, const char *buffer);
+	virtual ClusterNo getCacheNumOfClusters() const;
+	virtual int sync();
+	virtual int readCluster(ClusterNo, char *buffer);
+	virtual int writeCluster(ClusterNo, const char *buffer);
 
-	~Cache();
+	virtual ~Cache();
 	Cache(Partition* p);
 };
 

@@ -3,7 +3,7 @@
 #include "part.h"
 #include "cache.h"
 #include "bitvect.h"
-
+#include "dir.h"
 KernelFS* volatile KernelFS::mounted = NULL;
 LONG volatile KernelFS::isInit = 0;
 
@@ -13,6 +13,7 @@ KernelFS::KernelFS(Partition* p) {
 	this->p = p;
 	cache = new Cache(p);
 	bitVect = new BitVector(cache);
+	dir = new Directory(this);
 }
 
 KernelFS::~KernelFS() {
@@ -50,10 +51,12 @@ char KernelFS::unmount() {
 	if (mounted != NULL) {
 		delete mounted;
 		mounted = NULL;
+		LeaveCriticalSection(&KernelFS_CS);
 		WakeConditionVariable(&alreadyMounted);
 	}
-
-	LeaveCriticalSection(&KernelFS_CS);
+	else
+		LeaveCriticalSection(&KernelFS_CS);
+	
 }
 
 ClusterNo KernelFS::alloc()
@@ -119,7 +122,7 @@ char KernelFS::format() {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-
+	delete dir;
 	char* emptyCluster = new char[ClusterSize];
 	memset(emptyCluster, 0, ClusterSize);
 	bitVect->clear();
@@ -134,7 +137,8 @@ char KernelFS::format() {
 	bitVect->set(i);
 	bitVect->writeThrough();
 	delete [] emptyCluster;
-	//TODO: probably smth related to the root dir
+	cache->sync();
+	dir = new Directory(this);
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
 }
@@ -142,30 +146,37 @@ FileCnt KernelFS::readRootDir() {
 	if (!isInit) {
 		return 0;
 	}
+	FileCnt ansr;
 	EnterCriticalSection(&KernelFS_CS);
 	if (mounted == NULL) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
 
-	// CODE GOES HERE
+	ansr = dir->cntFiles();
 
 	LeaveCriticalSection(&KernelFS_CS);
+	return ansr;
 }
 
 char KernelFS::doesExist(char* fname) {
 	if (!isInit) {
 		return 0;
 	}
+	char ansr;
 	EnterCriticalSection(&KernelFS_CS);
 	if (mounted == NULL) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
+	DirDesc dd;
 
-	// CODE GOES HERE
+	if (dir->getDirDesc(fname, &dd))
+		ansr = 1;
+	else ansr = 0;
 
 	LeaveCriticalSection(&KernelFS_CS);
+	return ansr;
 }
 
 File* KernelFS::open(char* fname, char mode) {

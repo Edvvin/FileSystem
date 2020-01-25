@@ -28,7 +28,7 @@ public:
 	char eof();
 	BytesCnt getFileSize();
 	char truncate();
-	KernelFile(char mode);
+	KernelFile(ClusterNo ind1Adr, char mode);
 	~KernelFile();
 };
 
