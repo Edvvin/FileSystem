@@ -21,6 +21,7 @@ KernelFS::KernelFS(Partition* p) {
 KernelFS::~KernelFS() {
 	delete bitVect;
 	delete cache;
+	delete dir;
 }
 
 char KernelFS::mount(Partition* partition) {
@@ -186,6 +187,10 @@ char KernelFS::doesExist(char* fname) {
 }
 
 File* KernelFS::open(char* fname, char mode) {
+	if (!fname)
+		return 0;
+	if (*fname != '/')
+		return 0;
 	if (!isInit) {
 		return 0;
 	}
@@ -209,9 +214,22 @@ File* KernelFS::open(char* fname, char mode) {
 		}
 		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockExclusive(openFileTable[fname]);
+		if (!exists) {
+			char* name = fname + 1;
+			char* dot = strchr(name, '.');
+			int n = dot - name < FNAMELEN? dot - name : FNAMELEN;
+			strncpy(dd.name, name, n);
+			strncpy(dd.ext, dot + 1, FEXTLEN);
+			dd.size = 0;
+			dd.ind1 = alloc();
+			EnterCriticalSection(&KernelFS_CS);
+			dir->addDirDesc(&dd);
+		}
 		File* ret = new File();
-		ret->myImpl = new KernelFile(); // TODO
+		ret->myImpl = new KernelFile(dd, mode);
 		ret->myImpl->seek(0);
+		if (!exists)
+			ret->myImpl->truncate();
 		FCBCnt++;
 		return ret;
 	}
@@ -228,7 +246,7 @@ File* KernelFS::open(char* fname, char mode) {
 		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockExclusive(openFileTable[fname]);
 		File* ret = new File();
-		ret->myImpl = new KernelFile(); // TODO
+		ret->myImpl = new KernelFile(dd, mode);
 		ret->myImpl->seek(ret->myImpl->getFileSize());
 		FCBCnt++;
 		return ret;
@@ -246,7 +264,7 @@ File* KernelFS::open(char* fname, char mode) {
 		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockShared(openFileTable[fname]);
 		File* ret = new File();
-		ret->myImpl = new KernelFile(); // TODO
+		ret->myImpl = new KernelFile(dd, mode);
 		ret->myImpl->seek(0);
 		FCBCnt++;
 		return ret;
@@ -276,9 +294,12 @@ char KernelFS::deleteFile(char* fname) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	KernelFile* f = new KernelFile(); // TODO
+	KernelFile* f = new KernelFile(dd, 'w');
 	f->truncate();
 	delete f;
+	LeaveCriticalSection(&KernelFS_CS);
+	dealloc(dd.ind1);
+	EnterCriticalSection(&KernelFS_CS);
 	dir->clearDirDesc(ind);
 	LeaveCriticalSection(&KernelFS_CS);
 }

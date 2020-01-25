@@ -3,20 +3,12 @@
 #include "cache.h"
 
 
-KernelFile::KernelFile(ClusterNo ind1Adr, char m)
+KernelFile::KernelFile(DirDesc& dd, char m)
 {
 	this->ind1Adr = ind1Adr;
+	this->mode = m;
+	this->sizeOfFile = dd.size;
 	cursorLoaded = 0;
-	switch (m) {
-	case 'r':
-		break;
-	case 'w':
-		break;
-	case 'a':
-		break;
-	default:
-		break;
-	}
 
 }
 
