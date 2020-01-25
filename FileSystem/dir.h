@@ -7,6 +7,8 @@ class Directory {
 public:
 	Directory(KernelFS* fs);
 	~Directory();
-	char getDirDesc(char* fileName, DirDesc* desc);
+	char getDirDesc(char* fileName, DirDesc* desc, int& i);
+	char addDirDesc(DirDesc* desc);
+	char clearDirDesc(int i);
 	FileCnt cntFiles();
 };

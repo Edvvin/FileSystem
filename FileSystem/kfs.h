@@ -6,8 +6,9 @@
 #include <string>
 #include <map>
 
-class Cache;
-class BitVector;
+extern class Cache;
+extern class BitVector;
+extern class Directory;
 
 struct DirDesc {
 	char name[8];
@@ -20,6 +21,7 @@ struct DirDesc {
 
 class KernelFS {
 	int FCBCnt;
+	int isFormating;
 	Partition* p;
 	Cache* cache;
 	BitVector* bitVect;

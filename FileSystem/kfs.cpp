@@ -1,4 +1,5 @@
 #include "kfs.h"
+#include "kfile.h"
 #include <stdlib.h>
 #include "part.h"
 #include "cache.h"
@@ -10,6 +11,7 @@ LONG volatile KernelFS::isInit = 0;
 
 KernelFS::KernelFS(Partition* p) {
 	FCBCnt = 0;
+	isFormating = 0;
 	this->p = p;
 	cache = new Cache(p);
 	bitVect = new BitVector(cache);
@@ -56,6 +58,7 @@ char KernelFS::unmount() {
 	}
 	else
 		LeaveCriticalSection(&KernelFS_CS);
+	return 1;
 	
 }
 
@@ -122,6 +125,9 @@ char KernelFS::format() {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
+	isFormating = 1;
+	if(FCBCnt > 0)
+		SleepConditionVariableCS(&openFilesExist, &KernelFS_CS, INFINITE); // awake when FCBCnt == 0
 	delete dir;
 	char* emptyCluster = new char[ClusterSize];
 	memset(emptyCluster, 0, ClusterSize);
@@ -170,8 +176,8 @@ char KernelFS::doesExist(char* fname) {
 		return 0;
 	}
 	DirDesc dd;
-
-	if (dir->getDirDesc(fname, &dd))
+	int ind;
+	if (dir->getDirDesc(fname, &dd, ind))
 		ansr = 1;
 	else ansr = 0;
 
@@ -188,10 +194,66 @@ File* KernelFS::open(char* fname, char mode) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-
-	// CODE GOES HERE
+	if(isFormating) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+	DirDesc dd;
+	int ind;
+	char exists = dir->getDirDesc(fname, &dd, ind);
+	if (mode == 'w') {
+		if (!openFileTable.count(fname)) {
+			PSRWLOCK psr;
+			InitializeSRWLock(psr);
+			openFileTable[fname] = psr;
+		}
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockExclusive(openFileTable[fname]);
+		File* ret = new File();
+		ret->myImpl = new KernelFile(); // TODO
+		ret->myImpl->seek(0);
+		FCBCnt++;
+		return ret;
+	}
+	else if (mode = 'a') {
+		if (!exists) {
+			LeaveCriticalSection(&KernelFS_CS);
+			return NULL;
+		}
+		if (!openFileTable.count(fname)) {
+			PSRWLOCK psr;
+			InitializeSRWLock(psr);
+			openFileTable[fname] = psr;
+		}
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockExclusive(openFileTable[fname]);
+		File* ret = new File();
+		ret->myImpl = new KernelFile(); // TODO
+		ret->myImpl->seek(ret->myImpl->getFileSize());
+		FCBCnt++;
+		return ret;
+	}
+	else if (mode == 'r'){
+		if (!exists) {
+			LeaveCriticalSection(&KernelFS_CS);
+			return NULL;
+		}
+		if (!openFileTable.count(fname)) {
+			PSRWLOCK psr;
+			InitializeSRWLock(psr);
+			openFileTable[fname] = psr;
+		}
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockShared(openFileTable[fname]);
+		File* ret = new File();
+		ret->myImpl = new KernelFile(); // TODO
+		ret->myImpl->seek(0);
+		FCBCnt++;
+		return ret;
+	}
 
 	LeaveCriticalSection(&KernelFS_CS);
+	return NULL;
 }
 
 char KernelFS::deleteFile(char* fname) {
@@ -203,9 +265,21 @@ char KernelFS::deleteFile(char* fname) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-
-	// CODE GOES HERE
-
+	if (!openFileTable.count(fname)) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+	DirDesc dd;
+	int ind;
+	char exists = dir->getDirDesc(fname, &dd, ind);
+	if (!exists) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+	KernelFile* f = new KernelFile(); // TODO
+	f->truncate();
+	delete f;
+	dir->clearDirDesc(ind);
 	LeaveCriticalSection(&KernelFS_CS);
 }
 

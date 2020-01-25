@@ -3,8 +3,6 @@
 #include "part.h"
 
 
-struct FileHeader;
-
 class KernelFile
 {
 	ClusterNo ind1Adr;
@@ -30,8 +28,4 @@ public:
 	char truncate();
 	KernelFile(ClusterNo ind1Adr, char mode);
 	~KernelFile();
-};
-
-struct FileHeader {
-
 };
