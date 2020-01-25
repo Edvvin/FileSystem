@@ -2,6 +2,7 @@
 #include "file.h"
 #include "part.h"
 
+extern struct DirDesc;
 
 class KernelFile
 {
@@ -10,12 +11,14 @@ class KernelFile
 	ClusterNo ind1[ClusterSize / sizeof(ClusterNo)];
 	ClusterNo ind2[ClusterSize / sizeof(ClusterNo)];
 	char data[ClusterSize];
-
+	int dirtyData, dirtyInd1, dirtyInd2;
 	BytesCnt cursor;
 	BytesCnt sizeOfFile;
 
 	char mode;
 	int cursorLoaded;
+	char fname[20];
+
 
 public:
 	char expand();
@@ -26,6 +29,6 @@ public:
 	char eof();
 	BytesCnt getFileSize();
 	char truncate();
-	KernelFile(DirDesc& dd, char m);
+	KernelFile(DirDesc& dd, char m, char* fname);
 	~KernelFile();
 };

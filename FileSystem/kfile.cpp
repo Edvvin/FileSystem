@@ -3,27 +3,46 @@
 #include "cache.h"
 
 
-KernelFile::KernelFile(DirDesc& dd, char m)
+KernelFile::KernelFile(DirDesc& dd, char m, char* fname)
 {
 	this->ind1Adr = ind1Adr;
 	this->mode = m;
 	this->sizeOfFile = dd.size;
+	strcpy(this->fname, fname);
 	cursorLoaded = 0;
-
+	dirtyData = 0;
+	dirtyInd2 = 0;
+	dirtyInd1 = 0;
 }
 
 
 KernelFile::~KernelFile()
 {
+	if (dirtyData)
+		KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
+	if(dirtyInd2)
+		KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
+	if (dirtyInd1)
+		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
+	if(mode == 'a' || mode == 'w')
+		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fname]);
+	else
+		ReleaseSRWLockShared(KernelFS::mounted->openFileTable[fname]);
+	if (--KernelFS::mounted->FCBCnt == 0) {
+		WakeConditionVariable(&KernelFS::mounted->openFilesExist);
+	}
 }
 
 
 char KernelFile::write(BytesCnt cnt, char* buffer) {
+	if (mode == 'r')
+		return 0;
 	for (unsigned i = 0; i < cnt; i++) {
 		if (eof())
 			if (!expand())
 				return 0;
 		data[dataCursor] = buffer[i];
+		dirtyData = 1;
 		seek(cursor + 1);
 	}
 	return 1;
@@ -51,17 +70,22 @@ char KernelFile::seek(BytesCnt r) {
 
 	if (a != ind1Cursor || !cursorLoaded) {
 		if (cursorLoaded) {
-			KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
-			KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
+			if(dirtyData)
+				KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
+			if(dirtyInd2)
+				KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
 		}
 		KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
 		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		dirtyData = 0;
+		dirtyInd2 = 0;
 	}
 	else {
 		if (b != ind2Cursor) {
-			if(cursorLoaded)
+			if(cursorLoaded && dirtyData)
 				KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
 			KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+			dirtyData = 0;
 		}
 	}
 	ind1Cursor = a;
@@ -87,6 +111,8 @@ BytesCnt KernelFile::getFileSize() {
 }
 
 char KernelFile::truncate() {
+	if (mode == 'r')
+		return 0;
 	const int entries = ClusterSize / sizeof(ClusterNo);
 	int r = cursor;
 	int A = entries;
@@ -118,6 +144,9 @@ char KernelFile::truncate() {
 		ind1[a] = 0;
 		a++;
 	}
+	dirtyData = 1;
+	dirtyInd2 = 1;
+	dirtyInd1 = 1;
 	sizeOfFile = cursor;
 	return 1;
 }
@@ -137,10 +166,14 @@ char KernelFile::expand()
 			if (newInd2 == 0)
 				return 0;
 			ind1[a] = newInd2;
+			dirtyInd1 = 1;
 			memset(ind2, 0, ClusterSize);
+			dirtyInd2 = 1;
 		}
 		ClusterNo newData = KernelFS::mounted->alloc();
 		ind2[b] = newData;
+		dirtyInd2 = 1;
+		dirtyData = 1;
 		memset(data, 0, ClusterSize);
 	}
 	this->sizeOfFile++;

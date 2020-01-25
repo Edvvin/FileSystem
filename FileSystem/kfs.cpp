@@ -226,7 +226,7 @@ File* KernelFS::open(char* fname, char mode) {
 			dir->addDirDesc(&dd);
 		}
 		File* ret = new File();
-		ret->myImpl = new KernelFile(dd, mode);
+		ret->myImpl = new KernelFile(dd, mode, fname);
 		ret->myImpl->seek(0);
 		if (!exists)
 			ret->myImpl->truncate();
@@ -246,7 +246,7 @@ File* KernelFS::open(char* fname, char mode) {
 		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockExclusive(openFileTable[fname]);
 		File* ret = new File();
-		ret->myImpl = new KernelFile(dd, mode);
+		ret->myImpl = new KernelFile(dd, mode, fname);
 		ret->myImpl->seek(ret->myImpl->getFileSize());
 		FCBCnt++;
 		return ret;
@@ -264,7 +264,7 @@ File* KernelFS::open(char* fname, char mode) {
 		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockShared(openFileTable[fname]);
 		File* ret = new File();
-		ret->myImpl = new KernelFile(dd, mode);
+		ret->myImpl = new KernelFile(dd, mode, fname);
 		ret->myImpl->seek(0);
 		FCBCnt++;
 		return ret;
@@ -294,7 +294,7 @@ char KernelFS::deleteFile(char* fname) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	KernelFile* f = new KernelFile(dd, 'w');
+	KernelFile* f = new KernelFile(dd, 'w', fname);
 	f->truncate();
 	delete f;
 	LeaveCriticalSection(&KernelFS_CS);
