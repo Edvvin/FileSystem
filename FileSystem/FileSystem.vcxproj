@@ -76,6 +76,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -117,16 +118,19 @@
   <ItemGroup>
     <ClInclude Include="bitvect.h" />
     <ClInclude Include="cache.h" />
+    <ClInclude Include="dir.h" />
     <ClInclude Include="file.h" />
     <ClInclude Include="fs.h" />
     <ClInclude Include="kfile.h" />
     <ClInclude Include="kfs.h" />
     <ClInclude Include="part.h" />
+    <ClInclude Include="rcache.h" />
     <ClInclude Include="testprimer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bitvect.cpp" />
     <ClCompile Include="cache.cpp" />
+    <ClCompile Include="dir.cpp" />
     <ClCompile Include="file.cpp" />
     <ClCompile Include="fs.cpp" />
     <ClCompile Include="kfile.cpp" />
@@ -134,6 +138,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="nit1.cpp" />
     <ClCompile Include="nit2.cpp" />
+    <ClCompile Include="rcache.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="particija.lib" />

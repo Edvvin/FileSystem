@@ -6,9 +6,9 @@
 #include <string>
 #include <map>
 
-extern class Cache;
-extern class BitVector;
-extern class Directory;
+class Cache;
+class BitVector;
+class Directory;
 
 struct DirDesc {
 	char name[8];

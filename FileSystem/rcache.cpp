@@ -14,7 +14,7 @@ RealCache::RealCache(Partition * p, ClusterNo size) : Cache(p)
 	this->size = size;
 	clocks = new int[size];
 	dirty = new char[size];
-	for (int i = 0; i < size; i++) {
+	for (unsigned i = 0; i < size; i++) {
 		clocks[i] = -1;
 		dirty[i] = 0;
 	}
@@ -30,15 +30,16 @@ ClusterNo RealCache::getCacheNumOfClusters() const
 
 int RealCache::sync()
 {
-	for (int i = 0; i < size; i++) {
+	for (unsigned i = 0; i < size; i++) {
 		if(clocks[i] == 0 && dirty[i])
 			p->writeCluster(adrs[i], cache + ClusterSize * i);
 	}
+	return 1;
 }
 
 int RealCache::readCluster(ClusterNo adr, char * buffer)
 {
-	int i;
+	unsigned i;
 	for (i = 0; i < size; i++)
 	{
 		if (adrs[i] == adr)
@@ -63,7 +64,7 @@ int RealCache::readCluster(ClusterNo adr, char * buffer)
 
 int RealCache::writeCluster(ClusterNo adr, const char * buffer)
 {
-	int i;
+	unsigned i;
 	for (i = 0; i < size; i++)
 	{
 		if (adrs[i] == adr)

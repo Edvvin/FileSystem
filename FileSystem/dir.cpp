@@ -4,7 +4,7 @@
 
 Directory::Directory(KernelFS * fs)
 {
-	kf = new KernelFile(fs->cache->getNumOfClusters()/sizeof(ClusterNo), 'w');
+	kf = new KernelFile();
 }
 
 Directory::~Directory()
@@ -46,6 +46,7 @@ char Directory::addDirDesc(DirDesc * desc)
 		}
 	}
 	kf->write(sizeof(DirDesc), (char*)desc);
+	return 1;
 }
 
 char Directory::clearDirDesc(int i)
@@ -55,6 +56,7 @@ char Directory::clearDirDesc(int i)
 	kf->read(sizeof(DirDesc), (char*)&dd);
 	memset(&(dd.name), 0, 8 * sizeof(char));
 	kf->write(sizeof(DirDesc), (char*)&dd);
+	return 1;
 }
 
 FileCnt Directory::cntFiles() {

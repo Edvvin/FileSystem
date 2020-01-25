@@ -10,11 +10,21 @@ KernelFile::KernelFile(DirDesc& dd, char m, char* fname)
 	this->sizeOfFile = dd.size;
 	strcpy(this->fname, fname);
 	cursorLoaded = 0;
+	isRoot = 0;
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
 }
 
+KernelFile::KernelFile() {
+	this->ind1Adr = KernelFS::mounted->cache->getNumOfClusters() / sizeof(ClusterNo);
+	this->mode = 'w';
+	cursorLoaded = 0;
+	isRoot = 0;
+	dirtyData = 0;
+	dirtyInd2 = 0;
+	dirtyInd1 = 0;
+}
 
 KernelFile::~KernelFile()
 {
@@ -177,4 +187,5 @@ char KernelFile::expand()
 		memset(data, 0, ClusterSize);
 	}
 	this->sizeOfFile++;
+	return 1;
 }

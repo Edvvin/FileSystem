@@ -36,6 +36,7 @@ char KernelFS::mount(Partition* partition) {
 	}
 	mounted = new KernelFS(partition);
 	LeaveCriticalSection(&KernelFS_CS);
+	return 1;
 }
 char KernelFS::unmount() {
 	if (!isInit) {
@@ -208,7 +209,7 @@ File* KernelFS::open(char* fname, char mode) {
 	char exists = dir->getDirDesc(fname, &dd, ind);
 	if (mode == 'w') {
 		if (!openFileTable.count(fname)) {
-			PSRWLOCK psr;
+			PSRWLOCK psr = 0;
 			InitializeSRWLock(psr);
 			openFileTable[fname] = psr;
 		}
@@ -217,7 +218,7 @@ File* KernelFS::open(char* fname, char mode) {
 		if (!exists) {
 			char* name = fname + 1;
 			char* dot = strchr(name, '.');
-			int n = dot - name < FNAMELEN? dot - name : FNAMELEN;
+			int n = (dot - name) < FNAMELEN? (dot - name) : FNAMELEN;
 			strncpy(dd.name, name, n);
 			strncpy(dd.ext, dot + 1, FEXTLEN);
 			dd.size = 0;
@@ -239,7 +240,7 @@ File* KernelFS::open(char* fname, char mode) {
 			return NULL;
 		}
 		if (!openFileTable.count(fname)) {
-			PSRWLOCK psr;
+			PSRWLOCK psr = 0;
 			InitializeSRWLock(psr);
 			openFileTable[fname] = psr;
 		}
@@ -257,7 +258,7 @@ File* KernelFS::open(char* fname, char mode) {
 			return NULL;
 		}
 		if (!openFileTable.count(fname)) {
-			PSRWLOCK psr;
+			PSRWLOCK psr = 0;
 			InitializeSRWLock(psr);
 			openFileTable[fname] = psr;
 		}
@@ -302,5 +303,6 @@ char KernelFS::deleteFile(char* fname) {
 	EnterCriticalSection(&KernelFS_CS);
 	dir->clearDirDesc(ind);
 	LeaveCriticalSection(&KernelFS_CS);
+	return 1;
 }
 

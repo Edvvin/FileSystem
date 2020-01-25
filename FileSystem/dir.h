@@ -1,6 +1,6 @@
 #pragma once
 #include "kfs.h"
-extern class KernelFile;
+class KernelFile;
 
 class Directory {
 	KernelFile* kf;
