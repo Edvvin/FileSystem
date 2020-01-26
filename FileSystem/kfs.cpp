@@ -74,7 +74,13 @@ char KernelFS::unmount() {
 
 ClusterNo KernelFS::alloc()
 {
-	char zeros[ClusterSize];
+	static char zeros[ClusterSize];
+	static int set = 0;
+	if (set == 0) {
+		set = 1;
+		memset(zeros, 0, ClusterSize);
+	}
+
 	if (!isInit) {
 		return 0;
 	}
@@ -151,8 +157,7 @@ FileCnt KernelFS::readRootDir() {
 	memset(zeros, 0, FNAMELEN);
 	while (1) {
 		if (dir->eof(i)) {
-			LeaveCriticalSection(&KernelFS_CS);
-			return 0;
+			break;
 		}
 		DirDesc dd = dir->getDirDesc(i);
 		if (!memcmp(dd.name, zeros, FNAMELEN))
@@ -173,30 +178,12 @@ char KernelFS::doesExist(char* fname) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	if (fname[0] != '/') {
-		LeaveCriticalSection(&KernelFS_CS);
-		return 0;
-	}
-	char* dot = strchr(fname, '.');
-	if (!dot) {
-		LeaveCriticalSection(&KernelFS_CS);
-		return 0;
-	}
-	char ansr;
-	int i = 0;
-	while (1) {
-		if(dir->eof(i)) {
-			LeaveCriticalSection(&KernelFS_CS);
-			return 0;
-		}
-		DirDesc dd = dir->getDirDesc(i);
-		if (!strncmp(dd.name, fname + 1, FNAMELEN) && !strncmp(dd.ext, dot + 1, FEXTLEN)) {
-			ansr = 1;
-			break;
-		}
-		i++;
-	}
-
+	char ansr = 0;
+	int fileInd = 0;
+	int exists = 0;
+	dir->find(fname, fileInd, exists);
+	if (exists == 1)
+		ansr = 1;
 	LeaveCriticalSection(&KernelFS_CS);
 	return ansr;
 }
@@ -204,12 +191,11 @@ char KernelFS::doesExist(char* fname) {
 File* KernelFS::open(char* fname, char mode) {
 	if (!fname)
 		return 0;
-	if (*fname != '/')
-		return 0;
 	if (!isInit) {
 		return 0;
 	}
 	EnterCriticalSection(&KernelFS_CS);
+	// almost all of the checks
 	if (mounted == NULL) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
@@ -218,74 +204,79 @@ File* KernelFS::open(char* fname, char mode) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	DirDesc dd;
-	int ind;
-	char exists = dir->getDirDesc(fname, &dd, ind);
-	if (mode == 'w') {
-		if (!openFileTable.count(fname)) {
-			PSRWLOCK psr = 0;
-			InitializeSRWLock(psr);
-			openFileTable[fname] = psr;
-		}
+	if (mode != 'w' && mode != 'a' && mode != 'r') {
 		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockExclusive(openFileTable[fname]);
+		return 0;
+	}
+	if (fname[0] != '/') {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+
+	int fileInd = 0;
+	int exists = 1;
+	dir->find(fname, fileInd, exists);
+	if(exists < 0) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+
+	if(mode != 'w' && !exists){
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+
+	// setting up the FileTableEntry
+	PSRWLOCK psr = 0;
+	if (openFileTable.count(fileInd)) 
+	{
+		psr = openFileTable[fileInd]->lock;
+	}
+	else 
+	{
+		InitializeSRWLock(psr);
+		openFileTable[fileInd] = new FileTableEntry(psr);
+	}
+
+	// setting up the dirdesc
+	DirDesc dd;
+	if(exists)
+		dd = dir->getDirDesc(fileInd);
+
+	LeaveCriticalSection(&KernelFS_CS);
+
+	if (mode == 'w') {
+		AcquireSRWLockExclusive(psr);
 		if (!exists) {
-			char* name = fname + 1;
-			char* dot = strchr(name, '.');
-			int n = (dot - name) < FNAMELEN? (dot - name) : FNAMELEN;
-			strncpy(dd.name, name, n);
-			strncpy(dd.ext, dot + 1, FEXTLEN);
-			dd.size = 0;
-			dd.ind1 = alloc();
-			EnterCriticalSection(&KernelFS_CS);
-			dir->addDirDesc(&dd);
+			fileInd = dir->addFile(fname);
 		}
 		File* ret = new File();
-		ret->myImpl = new KernelFile(dd, mode, fname);
+		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
-		if (!exists)
+		if (exists)
 			ret->myImpl->truncate();
 		FCBCnt++;
+		openFileTable[fileInd]->waitCnt++;
 		return ret;
 	}
 	else if (mode = 'a') {
-		if (!exists) {
-			LeaveCriticalSection(&KernelFS_CS);
-			return NULL;
-		}
-		if (!openFileTable.count(fname)) {
-			PSRWLOCK psr = 0;
-			InitializeSRWLock(psr);
-			openFileTable[fname] = psr;
-		}
-		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockExclusive(openFileTable[fname]);
+		AcquireSRWLockExclusive(psr);
 		File* ret = new File();
-		ret->myImpl = new KernelFile(dd, mode, fname);
-		ret->myImpl->seek(ret->myImpl->getFileSize());
+		ret->myImpl = new KernelFile(dd, fileInd, mode);
+		ret->myImpl->seek(ret->myImpl->getFileSize()); // TODO  think about this
 		FCBCnt++;
+		openFileTable[fileInd]->waitCnt++;
 		return ret;
 	}
 	else if (mode == 'r'){
-		if (!exists) {
-			LeaveCriticalSection(&KernelFS_CS);
-			return NULL;
-		}
-		if (!openFileTable.count(fname)) {
-			PSRWLOCK psr = 0;
-			InitializeSRWLock(psr);
-			openFileTable[fname] = psr;
-		}
-		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockShared(openFileTable[fname]);
+		AcquireSRWLockShared(psr);
 		File* ret = new File();
-		ret->myImpl = new KernelFile(dd, mode, fname);
+		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
 		FCBCnt++;
+		openFileTable[fileInd]->waitCnt++;
 		return ret;
 	}
-
-	LeaveCriticalSection(&KernelFS_CS);
 	return NULL;
 }
 
@@ -299,35 +290,24 @@ char KernelFS::deleteFile(char* fname) {
 		return 0;
 	}
 
-
-	if (fname[0] != '/') {
-		LeaveCriticalSection(&KernelFS_CS);
-		return 0;
-	}
-	char* dot = strchr(fname, '.');
-	if (!dot) {
-		LeaveCriticalSection(&KernelFS_CS);
-		return 0;
-	}
-
 	DirDesc dd;
 	int fileInd = 0;
-	while (1) {
-		if (dir->eof(fileInd)) {
-			LeaveCriticalSection(&KernelFS_CS);
-			return 0;
-		}
-		dd = dir->getDirDesc(fileInd);
-		if (!strncmp(dd.name, fname + 1, FNAMELEN) && !strncmp(dd.ext, dot + 1, FEXTLEN)) {
-			break;
-		}
-		fileInd++;
+	int exists = 0;
+
+	dir->find(fname, fileInd, exists);
+
+	if (exists != 1) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
 	}
+
 
 	if (!openFileTable.count(fileInd)) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
+
+	dd = dir->getDirDesc(fileInd);
 
 	KernelFile* kf = new KernelFile(dd,fileInd,'w');
 	kf->seek(0);

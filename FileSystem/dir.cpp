@@ -94,6 +94,73 @@ void Directory::setDirDesc(int i, DirDesc & dd)
 	return;
 }
 
+int Directory::addFile(char * fname)
+{
+	char* dot = strchr(fname, '.');
+	char name[9];
+	char ext[4];
+	strncpy(name, fname, dot - fname);
+	name[dot - fname] = 0;
+	strcpy(ext, dot + 1);
+	DirDesc dd;
+	strncpy(dd.name, name, FNAMELEN);
+	strncpy(dd.ext, ext, FEXTLEN);
+	dd.ind1 = KernelFS::mounted->alloc();
+	dd.zero = 0;
+	dd.size = 0;
+	char zeros[FNAMELEN];
+	memset(zeros, 0, FNAMELEN);
+	DirDesc temp;
+	int i = 0;
+	while (1) {
+		if (eof(i))
+			break;
+		temp = getDirDesc(i);
+		if (!memcmp(temp.name, zeros, FNAMELEN))
+			break;
+		i++;
+	}
+	setDirDesc(i, dd);
+	return i;
+}
+
+void Directory::find(char * fname, int & fileInd, int & exists)
+{
+	if (strnlen(fname, FNAMELEN + FEXTLEN + 2) > FNAMELEN + FEXTLEN + 1) {
+		exists = -1;
+		fileInd = 0;
+	}
+	char* dot = strchr(fname, '.');
+	if (!dot) {
+		exists = -1;
+		fileInd = 0;
+	}
+	if (strnlen(dot, FEXTLEN + 2) > FEXTLEN + 1) {
+		exists = -1;
+		fileInd = 0;
+	}
+	char name[9];
+	char ext[4];
+	strncpy(name, fname, dot - fname);
+	name[dot - fname] = 0;
+	strcpy(ext, dot + 1);
+
+	fileInd = 0;
+	exists = 1;
+	DirDesc dd;
+	while (1) {
+		if (eof(fileInd)) {
+			exists = 0;
+			break;
+		}
+		dd = getDirDesc(fileInd);
+		if (!strcmp(dd.name, name) && !strcmp(dd.ext, ext)) {
+			break;
+		}
+		fileInd++;
+	}
+}
+
 char Directory::eof(int i)
 {
 	DirDesc zero;

@@ -3,7 +3,7 @@
 
 
 File::~File() {
-	//TODO
+	delete myImpl;
 }
 
 char File::write(BytesCnt cnt, char* buffer) {

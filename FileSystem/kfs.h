@@ -12,8 +12,7 @@ class Directory;
 struct FileTableEntry {
 	PSRWLOCK lock;
 	int waitCnt;
-	FileTableEntry():lock(0),waitCnt(0) {
-		InitializeSRWLock(lock);
+	FileTableEntry(PSRWLOCK psr):lock(psr),waitCnt(0) {
 	}
 };
 

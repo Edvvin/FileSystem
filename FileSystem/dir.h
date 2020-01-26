@@ -20,5 +20,7 @@ public:
 	~Directory();
 	DirDesc getDirDesc(int i);
 	void setDirDesc(int i, DirDesc& dd);
+	int addFile(char* fname);
+	void find(char* fname, int& fileInd, int& exists);
 	char eof(int i);
 };

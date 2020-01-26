@@ -37,6 +37,7 @@ KernelFile::~KernelFile()
 
 	if (KernelFS::mounted->openFileTable.count(fileInd)) {
 		if (--KernelFS::mounted->openFileTable[fileInd]->waitCnt == 0) {
+			delete KernelFS::mounted->openFileTable[fileInd];
 			KernelFS::mounted->openFileTable.erase(fileInd);
 		}
 	}
