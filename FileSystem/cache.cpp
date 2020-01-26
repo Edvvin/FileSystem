@@ -6,18 +6,13 @@ Cache::Cache(Partition * p)
 	this->p = p;
 }
 
-ClusterNo Cache::getNumOfClusters() const
-{
+ClusterNo Cache::getCacheNumOfClusters() {
 	return p->getNumOfClusters();
 }
 
-ClusterNo Cache::getCacheNumOfClusters() const {
-	return p->getNumOfClusters();
-}
-
-int Cache::sync() // TODO
+void Cache::writeBack() // TODO
 {
-	return 0;
+	return;
 }
 
 int Cache::readCluster(ClusterNo cNo, char * buffer)
@@ -30,7 +25,10 @@ int Cache::writeCluster(ClusterNo cNo, const char * buffer)
 	return p->writeCluster(cNo, buffer);
 }
 
+void Cache::clear(int doWriteBack)
+{
+}
+
 Cache::~Cache()
 {
-	sync();
 }

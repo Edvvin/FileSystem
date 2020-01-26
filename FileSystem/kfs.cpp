@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "part.h"
 #include "cache.h"
+#include "rcache.h"
 #include "bitvect.h"
 #include "dir.h"
 KernelFS* volatile KernelFS::mounted = NULL;
@@ -15,15 +16,15 @@ KernelFS::KernelFS(Partition* p) {
 	FCBCnt = 0;
 	isFormating = 0;
 	this->p = p;
-	cache = new Cache(p);
-	bitVect = new BitVector(cache);
-	dir = new Directory(this);
+	cache = new RealCache(p, p->getNumOfClusters() / 10);
+	bitVect = new BitVector(p);
+	dir = new Directory(bitVect.size());
 }
 
 KernelFS::~KernelFS() {
+	delete dir;
 	delete bitVect;
 	delete cache;
-	delete dir;
 }
 
 char KernelFS::mount(Partition* partition) {
@@ -103,23 +104,6 @@ void KernelFS::dealloc(ClusterNo target)
 	LeaveCriticalSection(&KernelFS_CS);
 }
 
-void KernelFS::dealloc(ClusterNo targets[], int cnt)
-{
-	if (!isInit) {
-		return;
-	}
-	EnterCriticalSection(&KernelFS_CS);
-	if (mounted == NULL) {
-		LeaveCriticalSection(&KernelFS_CS);
-		return;
-	}
-	for (int i = 0; i < cnt; i++) {
-		bitVect->reset(targets[i]);
-	}
-	bitVect->writeThrough();
-	LeaveCriticalSection(&KernelFS_CS);
-}
-
 char KernelFS::format() {
 	if (!isInit) {
 		return 0;
@@ -132,23 +116,19 @@ char KernelFS::format() {
 	isFormating = 1;
 	if(FCBCnt > 0)
 		SleepConditionVariableCS(&openFilesExist, &KernelFS_CS, INFINITE); // awake when FCBCnt == 0
-	delete dir;
-	char* emptyCluster = new char[ClusterSize];
-	memset(emptyCluster, 0, ClusterSize);
+	cache->clear(0); //TODO
 	bitVect->clear();
-	unsigned i;
-	for (i = 0; i < cache->getNumOfClusters() / ClusterSize; i++)
+	for (ClusterNo i = 0; i < bitVect->size(); i++)
 	{
-		cache->writeCluster(i, emptyCluster);
 		bitVect->set(i);
 	}
-	
-	cache->writeCluster(i, emptyCluster);
-	bitVect->set(i);
-	bitVect->writeThrough();
+	char* emptyCluster = new char[ClusterSize];
+	memset(emptyCluster, 0, ClusterSize);
+	cache->writeCluster(bitVect->size(), emptyCluster);
+	bitVect->set(bitVect->size());
 	delete [] emptyCluster;
-	cache->sync();
-	dir = new Directory(this);
+	dir->setSize(0);
+	isFormating = 0;
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
 }

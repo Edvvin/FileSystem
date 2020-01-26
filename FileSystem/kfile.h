@@ -31,6 +31,6 @@ public:
 	BytesCnt getFileSize();
 	char truncate();
 	KernelFile(DirDesc& dd, char m, char* fname);
-	KernelFile();
+	KernelFile(ClusterNo ind1Adr);
 	~KernelFile();
 };

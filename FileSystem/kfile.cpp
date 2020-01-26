@@ -16,11 +16,11 @@ KernelFile::KernelFile(DirDesc& dd, char m, char* fname)
 	dirtyInd1 = 0;
 }
 
-KernelFile::KernelFile() {
-	this->ind1Adr = KernelFS::mounted->cache->getNumOfClusters() / sizeof(ClusterNo);
+KernelFile::KernelFile(ClusterNo ind1Adr) {
+	this->ind1Adr = ind1Adr;
 	this->mode = 'w';
 	cursorLoaded = 0;
-	isRoot = 0;
+	isRoot = 1;
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
@@ -34,6 +34,8 @@ KernelFile::~KernelFile()
 		KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
 	if (dirtyInd1)
 		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
+	if (isRoot)
+		return;
 	if(mode == 'a' || mode == 'w')
 		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fname]);
 	else

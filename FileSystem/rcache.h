@@ -12,17 +12,17 @@ class RealCache : public Cache {
 	ClusterNo* adrs;
 	char* cache;
 	int hand;
-
+	int remaining;
 	int choose();
 
 public:
-	static const int clockLimit = 8;
+	static const int clockLimit = 4;
 	RealCache(Partition* p, ClusterNo size);
 
-	ClusterNo getCacheNumOfClusters() const override;
-	int sync() override;
+	ClusterNo getCacheNumOfClusters() override;
+	void writeBack() override;
 	int readCluster(ClusterNo adr, char *buffer) override;
 	int writeCluster(ClusterNo adr, const char *buffer) override;
-
+	void clear(int doWriteBack) override;
 	~RealCache();
 };

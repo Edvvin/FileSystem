@@ -3,8 +3,15 @@
 int RealCache::choose()
 {
 	while (clocks[hand] > 0) {
-		clocks[hand]--;
+		if(remaining == 0)
+			clocks[hand]--;
 		hand = (hand + 1) % size;
+	}
+	if (clocks[hand] < 0) {
+		remaining--;
+		if (remaining < 0)
+			exit(5555); //check
+		clocks[hand] = 0;
 	}
 	return hand;
 }
@@ -20,38 +27,37 @@ RealCache::RealCache(Partition * p, ClusterNo size) : Cache(p)
 	}
 	cache = new char[ClusterSize*size];
 	adrs = new ClusterNo[size];
+	remaining = size;
 	int hand = 0;
 }
 
-ClusterNo RealCache::getCacheNumOfClusters() const
+ClusterNo RealCache::getCacheNumOfClusters()
 {
 	return size;
 }
 
-int RealCache::sync()
+void RealCache::writeBack()
 {
 	for (unsigned i = 0; i < size; i++) {
-		if(clocks[i] == 0 && dirty[i])
+		if(dirty[i])
 			p->writeCluster(adrs[i], cache + ClusterSize * i);
 	}
-	return 1;
+	return;
 }
 
 int RealCache::readCluster(ClusterNo adr, char * buffer)
 {
-	unsigned i;
+	ClusterNo i;
 	for (i = 0; i < size; i++)
 	{
-		if (adrs[i] == adr)
+		if (clocks[i] >= 0 && adrs[i] == adr)
 			break;
 	}
 	if (i == size) {
 		i = choose();
-		if (clocks[i] == 0 && dirty[i]) {
+		if (dirty[i]) {
 			p->writeCluster(adrs[i], cache + i * ClusterSize);
 		}
-		else
-			clocks[i] = 0;
 		adrs[i] = adr;
 		dirty[i] = 0;
 		p->readCluster(adrs[i], cache + i * ClusterSize);
@@ -67,21 +73,16 @@ int RealCache::writeCluster(ClusterNo adr, const char * buffer)
 	unsigned i;
 	for (i = 0; i < size; i++)
 	{
-		if (adrs[i] == adr)
+		if (clocks[i] >= 0 && adrs[i] == adr)
 			break;
 	}
 	if (i == size) {
 		i = choose();
-		if (clocks[i] == 0 && dirty[i]) {
+		if (dirty[i]) {
 			p->writeCluster(adrs[i], cache + i * ClusterSize);
 		}
-		else
-			clocks[i] = 0;
 		adrs[i] = adr;
-		dirty[i] = 0;
-		p->readCluster(adrs[i], cache + i * ClusterSize);
 	}
-
 	memcpy(cache + ClusterSize * i, buffer, ClusterSize);
 	dirty[i] = 1;
 	if (clocks[i] < clockLimit)
@@ -89,8 +90,20 @@ int RealCache::writeCluster(ClusterNo adr, const char * buffer)
 	return 1;
 }
 
+void RealCache::clear(int doWriteBack)
+{
+	if (doWriteBack)
+		writeBack();
+	for (unsigned i = 0; i < size; i++)
+	{
+		dirty[i] = 0;
+		clocks[i] = -1;
+	}
+}
+
 RealCache::~RealCache()
 {
+	writeBack();
 	delete[] clocks;
 	delete[] dirty;
 	delete[] cache;

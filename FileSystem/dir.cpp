@@ -2,9 +2,9 @@
 #include "kfile.h"
 #include "cache.h"
 
-Directory::Directory(KernelFS * fs)
+Directory::Directory(ClusterNo ind1Adr)
 {
-	kf = new KernelFile();
+	kf = new KernelFile(ind1Adr);
 }
 
 Directory::~Directory()

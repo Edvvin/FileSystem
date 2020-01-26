@@ -5,7 +5,7 @@ class KernelFile;
 class Directory {
 	KernelFile* kf;
 public:
-	Directory(KernelFS* fs);
+	Directory(ClusterNo);
 	~Directory();
 	char getDirDesc(char* fileName, DirDesc* desc, int& i);
 	char addDirDesc(DirDesc* desc);
