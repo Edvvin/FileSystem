@@ -25,12 +25,22 @@ KernelFile::~KernelFile()
 		KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
 	if (dirtyInd1)
 		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
-	dd.size = sizeOfFile;
-	KernelFS::mounted->dir->setDirDesc(fileInd, dd);
-	if(mode == 'a' || mode == 'w')
-		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fileInd]);
-	else
-		ReleaseSRWLockShared(KernelFS::mounted->openFileTable[fileInd]);
+
+	if (mode == 'a' || mode == 'w') {
+		dd.size = sizeOfFile;
+		KernelFS::mounted->dir->setDirDesc(fileInd, dd);
+		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fileInd]->lock);
+	}
+	else {
+		ReleaseSRWLockShared(KernelFS::mounted->openFileTable[fileInd]->lock);
+	}
+
+	if (KernelFS::mounted->openFileTable.count(fileInd)) {
+		if (--KernelFS::mounted->openFileTable[fileInd]->waitCnt == 0) {
+			KernelFS::mounted->openFileTable.erase(fileInd);
+		}
+	}
+
 	if (--KernelFS::mounted->FCBCnt == 0) {
 		WakeConditionVariable(&KernelFS::mounted->openFilesExist);
 	}

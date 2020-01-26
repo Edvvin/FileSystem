@@ -329,7 +329,7 @@ char KernelFS::deleteFile(char* fname) {
 		return 0;
 	}
 
-	KernelFile* kf = new KernelFile(); //TODO THINK ABOUT THIS
+	KernelFile* kf = new KernelFile(dd,fileInd,'w');
 	kf->seek(0);
 	kf->truncate();
 	delete kf;

@@ -9,6 +9,14 @@ class Cache;
 class BitVector;
 class Directory;
 
+struct FileTableEntry {
+	PSRWLOCK lock;
+	int waitCnt;
+	FileTableEntry():lock(0),waitCnt(0) {
+		InitializeSRWLock(lock);
+	}
+};
+
 struct DirDesc {
 	char name[8];
 	char ext[3];
@@ -25,7 +33,7 @@ class KernelFS {
 	Cache* cache;
 	BitVector* bitVect;
 	Directory* dir;
-	std::map<int, PSRWLOCK> openFileTable;
+	std::map<int, FileTableEntry*> openFileTable;
 
 	static LONG volatile isInit;
 	static CRITICAL_SECTION KernelFS_CS;
