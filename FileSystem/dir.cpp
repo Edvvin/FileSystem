@@ -2,70 +2,126 @@
 #include "kfile.h"
 #include "cache.h"
 
+
+char Directory::seek(BytesCnt r)
+{
+	int A = ClusterSize / sizeof(ClusterNo);
+	int B = A;
+	int C = ClusterSize;
+	int a = r / (B*C); // ind1Pointer
+	int b = (r - a * B*C) / C; //ind2Pointer
+	int c = r - a * B*C - b * C; //dataBytePointer
+
+	if (!cursorLoaded || a != ind1Cursor) {
+		if (cursorLoaded) {
+			if (dirtyData)
+				KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
+			if (dirtyInd2)
+				KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
+		}
+		KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
+		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		cursorLoaded = 1;
+		dirtyData = 0;
+		dirtyInd2 = 0;
+	}
+	else if (b != ind2Cursor) {
+		if (dirtyData)
+			KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
+		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		dirtyData = 0;
+	}
+
+	ind1Cursor = a;
+	ind2Cursor = b;
+	dataCursor = c;
+	cursor = r;
+	return 1;
+}
+
 Directory::Directory(ClusterNo ind1Adr)
 {
-	kf = new KernelFile(ind1Adr);
+	this->ind1Adr = ind1Adr;
+	cursorLoaded = 0;
+	dirtyData = 0;
+	dirtyInd2 = 0;
+	dirtyInd1 = 0;
 }
 
 Directory::~Directory()
 {
-	delete kf;
+	if (dirtyData)
+		KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
+	if (dirtyInd2)
+		KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
+	if (dirtyInd1)
+		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
 }
 
-char Directory::getDirDesc(char * fileName, DirDesc* desc, int& i)
+DirDesc Directory::getDirDesc(int i)
 {
-	if (*fileName != '/')
-		return 0;
-	fileName++;
-	kf->seek(0);
-	i = 0;
-	while (!kf->eof()) {
-		kf->read(sizeof(DirDesc), (char*)desc);
-		if (!strncmp(desc->name, fileName, FNAMELEN)) {
-			fileName = strchr(fileName, '.');
-			if (!fileName)
-				return 0;
-			if (!strncmp(desc->ext, fileName, FEXTLEN)) {
-				return 1;
+	DirDesc dd;
+	char* buffer = (char*)&dd;
+	seek(i* sizeof(DirDesc));
+	for (BytesCnt i = 0; i < sizeof(DirDesc); i++) {
+		buffer[i] = data[dataCursor];
+		seek(cursor + 1);
+	}
+	return dd;
+}
+
+void Directory::setDirDesc(int i, DirDesc & dd)
+{
+	if (eof(i))
+		expand(i*sizeof(DirDesc));
+	char* buffer = (char*)&dd;
+	seek(i * sizeof(DirDesc));
+	for (BytesCnt i = 0; i < sizeof(DirDesc); i++) {
+		data[dataCursor] = buffer[i];
+		dirtyData = 1;
+		seek(cursor + 1);
+	}
+	return;
+}
+
+char Directory::eof(int i)
+{
+	DirDesc zero;
+	memset(&zero, 0, sizeof(DirDesc));
+	seek(i * sizeof(ClusterNo));
+	DirDesc dd = getDirDesc(i);
+	return !memcmp(&dd, &zero, sizeof(DirDesc));
+}
+
+
+
+char Directory::expand(BytesCnt lastByte)
+{
+	int r = lastByte;
+	for (int i = 0; i < sizeof(DirDesc); i++) {
+		int A = ClusterSize / sizeof(ClusterNo);
+		int B = A;
+		int C = ClusterSize;
+		int a = r / (B*C); // ind1Pointer
+		int b = (r - a * B*C) / C; //ind2Pointer
+		int c = r - a * B*C - b * C; //dataBytePointer
+		if (c == 0) {
+			if (b == 0) {
+				ClusterNo newInd2 = KernelFS::mounted->alloc();
+				if (newInd2 == 0)
+					return 0;
+				ind1[a] = newInd2;
+				dirtyInd1 = 1;
+				memset(ind2, 0, ClusterSize);
+				dirtyInd2 = 1;
 			}
+			ClusterNo newData = KernelFS::mounted->alloc();
+			ind2[b] = newData;
+			dirtyInd2 = 1;
+			dirtyData = 1;
+			memset(data, 0, ClusterSize);
 		}
-		i++;
+		r++;
 	}
-	return 0;
-}
-
-char Directory::addDirDesc(DirDesc * desc)
-{
-	kf->seek(0);
-	DirDesc dd;
-	while (!kf->eof()) {
-		kf->read(sizeof(DirDesc), (char*)&dd);
-		if (!strncmp(desc->name, "\0\0\0\0\0\0\0\0", FNAMELEN)) {
-			kf->seek(kf->filePos() - sizeof(DirDesc));
-			break;
-		}
-	}
-	kf->write(sizeof(DirDesc), (char*)desc);
 	return 1;
-}
-
-char Directory::clearDirDesc(int i)
-{
-	kf->seek(i * sizeof(DirDesc));
-	DirDesc dd;
-	kf->read(sizeof(DirDesc), (char*)&dd);
-	memset(&(dd.name), 0, 8 * sizeof(char));
-	kf->write(sizeof(DirDesc), (char*)&dd);
-	return 1;
-}
-
-FileCnt Directory::cntFiles() {
-	FileCnt cnt = 0;
-	kf->seek(0);
-	DirDesc dd;
-	while (!kf->eof()) {
-		kf->read(sizeof(DirDesc), (char*)&dd);
-		cnt++;
-	}
-	return cnt;
 }

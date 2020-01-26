@@ -16,6 +16,7 @@ KernelFS::KernelFS(Partition* p) {
 	FCBCnt = 0;
 	isFormating = 0;
 	this->p = p;
+	mounted = this;
 	cache = new RealCache(p, p->getNumOfClusters() / 10);
 	bitVect = new BitVector(p);
 	dir = new Directory(bitVect->size());
@@ -37,7 +38,9 @@ char KernelFS::mount(Partition* partition) {
 	if (mounted != NULL) {
 		SleepConditionVariableCS(&alreadyMounted, &KernelFS_CS, INFINITE);
 	}
-	mounted = new KernelFS(partition);
+
+	new KernelFS(partition); // this sets the mounted ptr
+
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
 }

@@ -12,7 +12,6 @@ class KernelFile
 	ClusterNo ind2[ClusterSize / sizeof(ClusterNo)];
 	char data[ClusterSize];
 	int dirtyData, dirtyInd1, dirtyInd2;
-	int isRoot;
 	BytesCnt cursor;
 	BytesCnt sizeOfFile;
 
@@ -31,6 +30,5 @@ public:
 	BytesCnt getFileSize();
 	char truncate();
 	KernelFile(DirDesc& dd, char m, char* fname);
-	KernelFile(ClusterNo ind1Adr);
 	~KernelFile();
 };

@@ -33,7 +33,8 @@ class KernelFS {
 	static CRITICAL_SECTION KernelFS_CS;
 	static CONDITION_VARIABLE alreadyMounted;
 	static CONDITION_VARIABLE openFilesExist;
-
+	KernelFS(Partition* p);
+	~KernelFS();
 public:
 	friend class FS;
 	friend class KernelFile;
@@ -51,6 +52,4 @@ public:
 
 	File* open(char* fname, char mode);
 	char deleteFile(char* fname);
-	KernelFS(Partition* p);
-	~KernelFS();
 };

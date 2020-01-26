@@ -3,28 +3,18 @@
 #include "cache.h"
 
 
-KernelFile::KernelFile(DirDesc& dd, char m, char* fname)
+KernelFile::KernelFile(DirDesc& dd, char m, char* fname) // you forgot to load the ind1
 {
 	this->ind1Adr = ind1Adr;
 	this->mode = m;
 	this->sizeOfFile = dd.size;
 	strcpy(this->fname, fname);
 	cursorLoaded = 0;
-	isRoot = 0;
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
 }
 
-KernelFile::KernelFile(ClusterNo ind1Adr) {
-	this->ind1Adr = ind1Adr;
-	this->mode = 'w';
-	cursorLoaded = 0;
-	isRoot = 1;
-	dirtyData = 0;
-	dirtyInd2 = 0;
-	dirtyInd1 = 0;
-}
 
 KernelFile::~KernelFile()
 {
@@ -34,8 +24,6 @@ KernelFile::~KernelFile()
 		KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
 	if (dirtyInd1)
 		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
-	if (isRoot)
-		return;
 	if(mode == 'a' || mode == 'w')
 		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fname]);
 	else
@@ -46,12 +34,12 @@ KernelFile::~KernelFile()
 }
 
 
-char KernelFile::write(BytesCnt cnt, char* buffer) {
+char KernelFile::write(BytesCnt cnt, char* buffer) { // might need to speed it up with strcpy
 	if (mode == 'r')
 		return 0;
-	for (unsigned i = 0; i < cnt; i++) {
+	for (BytesCnt i = 0; i < cnt; i++) {
 		if (eof())
-			if (!expand())
+			if(!expand())
 				return 0;
 		data[dataCursor] = buffer[i];
 		dirtyData = 1;
@@ -60,8 +48,8 @@ char KernelFile::write(BytesCnt cnt, char* buffer) {
 	return 1;
 }
 
-BytesCnt KernelFile::read(BytesCnt cnt, char* buffer) {
-	for (unsigned i = 0; i < cnt; i++) {
+BytesCnt KernelFile::read(BytesCnt cnt, char* buffer) { // might need to speed it up with strcpy
+	for (BytesCnt i = 0; i < cnt; i++) {
 		if (eof())
 			return i;
 		buffer[i] = data[dataCursor];
@@ -71,7 +59,7 @@ BytesCnt KernelFile::read(BytesCnt cnt, char* buffer) {
 }
 
 char KernelFile::seek(BytesCnt r) {
-	if (r > getFileSize())
+	if (r > getFileSize()) // TODO this might be wrong for the directory
 		return 0;
 	int A = ClusterSize / sizeof(ClusterNo);
 	int B = A;
@@ -80,7 +68,7 @@ char KernelFile::seek(BytesCnt r) {
 	int b = (r - a*B*C) / C; //ind2Pointer
 	int c = r - a*B*C - b*C; //dataBytePointer
 
-	if (a != ind1Cursor || !cursorLoaded) {
+	if (!cursorLoaded || a != ind1Cursor) {
 		if (cursorLoaded) {
 			if(dirtyData)
 				KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
@@ -89,22 +77,21 @@ char KernelFile::seek(BytesCnt r) {
 		}
 		KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
 		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		cursorLoaded = 1;
 		dirtyData = 0;
 		dirtyInd2 = 0;
 	}
-	else {
-		if (b != ind2Cursor) {
-			if(cursorLoaded && dirtyData)
-				KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
-			KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
-			dirtyData = 0;
-		}
+	else if (b != ind2Cursor) {
+		if(dirtyData)
+			KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
+		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		dirtyData = 0;
 	}
+
 	ind1Cursor = a;
 	ind2Cursor = b;
 	dataCursor = c;
 	cursor = r;
-	cursorLoaded = 1;
 	return 1;
 }
 
@@ -138,27 +125,36 @@ char KernelFile::truncate() {
 	b += 1;
 	while (b < entries && ind2[b] != (ClusterNo)0) {
 		KernelFS::mounted->dealloc(ind2[b]);
+		dirtyInd2 = 1;
 		ind2[b] = 0;
 		b++;
 	}
 
 
-	ClusterNo ind2[entries]; // ind2 now refers to a local version not this->ind2
+	ClusterNo tempInd2[entries];
 	a += 1;
 	while (a < entries && ind1[a] != (ClusterNo)0) {
 		b = 0;
-		KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
-		while (b < entries && ind2[b] != (ClusterNo)0) {
-			KernelFS::mounted->dealloc(ind2[b]);
+		KernelFS::mounted->cache->readCluster(ind1[a], (char*)tempInd2);
+		while (b < entries && tempInd2[b] != (ClusterNo)0) {
+			KernelFS::mounted->dealloc(tempInd2[b]);
 			b++;
 		}
 		KernelFS::mounted->dealloc(ind1[a]);
+		dirtyInd1 = 1;
 		ind1[a] = 0;
 		a++;
 	}
 	dirtyData = 1;
-	dirtyInd2 = 1;
-	dirtyInd1 = 1;
+	if (cursor == 0) {
+		KernelFS::mounted->dealloc(ind2[0]);
+		KernelFS::mounted->dealloc(ind1[0]);
+		ind1[0] = 0;
+		dirtyInd2 = 0;
+		dirtyData = 0;
+		dirtyInd1 = 1;
+		cursorLoaded = 0;
+	}
 	sizeOfFile = cursor;
 	return 1;
 }
