@@ -43,7 +43,7 @@ public:
 	static char mount(Partition* partition); // Create the cache object, load bitVect
 	static char unmount(); // delete the cache object
 
-	ClusterNo alloc();
+	ClusterNo alloc(); //TODO set to 0
 	void dealloc(ClusterNo);
 
 	char format();

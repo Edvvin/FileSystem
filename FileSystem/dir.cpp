@@ -19,16 +19,24 @@ char Directory::seek(BytesCnt r)
 			if (dirtyInd2)
 				KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
 		}
-		KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
-		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
-		cursorLoaded = 1;
+		if (ind1[a] && ind2[b]) {
+			KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
+			KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+			cursorLoaded = 1;
+		}
+		else {
+			cursorLoaded = 0;
+		}
 		dirtyData = 0;
 		dirtyInd2 = 0;
 	}
 	else if (b != ind2Cursor) {
 		if (dirtyData)
 			KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
-		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		if (ind2[b])
+			KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		else
+			cursorLoaded = 0;
 		dirtyData = 0;
 	}
 
@@ -46,6 +54,7 @@ Directory::Directory(ClusterNo ind1Adr)
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
+	seek(0);
 }
 
 Directory::~Directory()
@@ -72,12 +81,13 @@ DirDesc Directory::getDirDesc(int i)
 
 void Directory::setDirDesc(int i, DirDesc & dd)
 {
-	if (eof(i))
-		expand(i*sizeof(DirDesc));
+	int end = eof(i);
 	char* buffer = (char*)&dd;
 	seek(i * sizeof(DirDesc));
-	for (BytesCnt i = 0; i < sizeof(DirDesc); i++) {
-		data[dataCursor] = buffer[i];
+	for (BytesCnt j = 0; j < sizeof(DirDesc); j++) {
+		if (end)
+			expand();
+		data[dataCursor] = buffer[j];
 		dirtyData = 1;
 		seek(cursor + 1);
 	}
@@ -95,33 +105,31 @@ char Directory::eof(int i)
 
 
 
-char Directory::expand(BytesCnt lastByte)
+char Directory::expand()
 {
-	int r = lastByte;
-	for (int i = 0; i < sizeof(DirDesc); i++) {
-		int A = ClusterSize / sizeof(ClusterNo);
-		int B = A;
-		int C = ClusterSize;
-		int a = r / (B*C); // ind1Pointer
-		int b = (r - a * B*C) / C; //ind2Pointer
-		int c = r - a * B*C - b * C; //dataBytePointer
-		if (c == 0) {
-			if (b == 0) {
-				ClusterNo newInd2 = KernelFS::mounted->alloc();
-				if (newInd2 == 0)
-					return 0;
-				ind1[a] = newInd2;
-				dirtyInd1 = 1;
-				memset(ind2, 0, ClusterSize);
-				dirtyInd2 = 1;
-			}
-			ClusterNo newData = KernelFS::mounted->alloc();
-			ind2[b] = newData;
-			dirtyInd2 = 1;
-			dirtyData = 1;
-			memset(data, 0, ClusterSize);
+	int r = cursor;
+	int A = ClusterSize / sizeof(ClusterNo);
+	int B = A;
+	int C = ClusterSize;
+	int a = r / (B*C); // ind1Pointer
+	int b = (r - a * B*C) / C; //ind2Pointer
+	int c = r - a * B*C - b * C; //dataBytePointer
+	if (cursorLoaded)
+		exit(333); //check
+	if (c == 0) {
+		if (b == 0) {
+			ClusterNo newInd2 = KernelFS::mounted->alloc();
+			ind1[a] = newInd2;
+			dirtyInd1 = 1;
+			KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
+			dirtyInd2 = 0;
 		}
-		r++;
+		ClusterNo newData = KernelFS::mounted->alloc();
+		ind2[b] = newData;
+		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		cursorLoaded = 1;
+		dirtyInd2 = 1;
+		dirtyData = 0;
 	}
 	return 1;
 }

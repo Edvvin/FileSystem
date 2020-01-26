@@ -14,7 +14,7 @@ class Directory {
 	int cursorLoaded;
 
 	char seek(BytesCnt);
-	char expand(BytesCnt lastByte);
+	char expand();
 public:
 	Directory(ClusterNo);
 	~Directory();
