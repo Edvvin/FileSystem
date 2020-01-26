@@ -4,18 +4,20 @@
 class Cache;
 class BitVector
 {
-	Cache* c;
+	Partition* p;
 	ClusterNo bitVectorId;
 	char bits[ClusterSize];
+	char dirty;
 	BitVector* next;
+	ClusterNo clusterCnt;
 public:
-	BitVector(Cache* c);
-	BitVector(Cache* c, ClusterNo id, ClusterNo size);
+	BitVector(Partition* p);
+	BitVector(Partition* c, ClusterNo id, ClusterNo size);
 	void set(ClusterNo cNo);
 	void reset(ClusterNo cNo);
 	int get(ClusterNo cNo);
-	void writeThrough();
 	void clear();
+	ClusterNo size();
 	ClusterNo find();
 	~BitVector();
 };

@@ -3,55 +3,53 @@
 #include <stdlib.h>
 #include <iostream>
 
-BitVector::BitVector(Cache * c) : BitVector(c, 0, c->getNumOfClusters())
+BitVector::BitVector(Partition* p) 
+	: BitVector(p, 0, ((p->getNumOfClusters() - 1) / (ClusterSize*CHAR_BIT)) + 1) // calculate the number of clusters needed
 {
 }
 
-BitVector::BitVector(Cache* c, ClusterNo id, ClusterNo size) {
-	this->c = c;
-	c->readCluster(bitVectorId, bits);
+BitVector::BitVector(Partition* p, ClusterNo id, ClusterNo size) {
+	this->p = p;
+	clusterCnt = size;
 	bitVectorId = id;
-	if (size > ClusterSize)
-		next = new BitVector(c, bitVectorId + 1, size - ClusterSize);
+	p->readCluster(bitVectorId, bits);
+	dirty = 0;
+	if (size > 1)
+		next = new BitVector(p, bitVectorId + 1, size - 1);
 	else
 		next = NULL;
 }
 
 void BitVector::set(ClusterNo cNo)
 {
-	if (cNo >= ClusterSize)
-		return next->set(cNo - ClusterSize);
-	int numOfByte = cNo / 8;
-	int numOfBit = cNo % 8;
-	char mask = 0x01 << (7 - numOfBit);
+	if (cNo >= ClusterSize*CHAR_BIT)
+		return next->set(cNo - ClusterSize * CHAR_BIT);
+	ClusterNo numOfByte = cNo / CHAR_BIT;
+	ClusterNo numOfBit = cNo % CHAR_BIT;
+	char mask = 0x01U << (CHAR_BIT - 1 - numOfBit);
 	bits[numOfByte] |= mask;
+	dirty = 1;
 }
 
 void BitVector::reset(ClusterNo cNo)
 {
-	if (cNo >= ClusterSize)
-		return next->reset(cNo - ClusterSize);
-	int numOfByte = cNo / 8;
-	int numOfBit = cNo % 8;
-	char mask = ~(0x01 << (7 - numOfBit));
+	if (cNo >= ClusterSize * CHAR_BIT)
+		return next->reset(cNo - ClusterSize * CHAR_BIT);
+	ClusterNo numOfByte = cNo / CHAR_BIT;
+	ClusterNo numOfBit = cNo % CHAR_BIT;
+	char mask = ~(0x01U << (CHAR_BIT - 1 - numOfBit));
 	bits[numOfByte] &= mask;
+	dirty = 1;
 }
 
 int BitVector::get(ClusterNo cNo)
 {
 	if (cNo >= ClusterSize)
 		return next->get(cNo - ClusterSize);
-	ClusterNo numOfByte = cNo / 8UL;
-	int numOfBit = cNo % 8;
-	char mask = 0x01 << (7 - numOfBit);
+	ClusterNo numOfByte = cNo / CHAR_BIT;
+	int numOfBit = cNo % CHAR_BIT;
+	char mask = 0x01U << (CHAR_BIT - 1 - numOfBit);
 	return bits[numOfByte] & mask;
-}
-
-void BitVector::writeThrough()
-{
-	c->writeCluster(bitVectorId, bits);
-	if (next)
-		next->writeThrough();
 }
 
 void BitVector::clear()
@@ -59,9 +57,15 @@ void BitVector::clear()
 	memset(bits, 0, ClusterSize);
 	if (next)
 		next->clear();
+	dirty = 1;
 }
 
-ClusterNo BitVector::find() // TODO
+ClusterNo BitVector::size()
+{
+	return this->clusterCnt;
+}
+
+ClusterNo BitVector::find()
 {
 	char freeByte = 0;
 	ClusterNo freeCluster = 0;
@@ -69,7 +73,7 @@ ClusterNo BitVector::find() // TODO
 	for (i = 0; i < ClusterSize; i++) {
 		if (bits[i] != 0xFF) { // index and bitvector clusters must be set to 1 for this to work
 			freeByte = bits[i];
-			freeCluster = i * 8;
+			freeCluster = i * CHAR_BIT;
 			break;
 		}
 	}
@@ -79,17 +83,19 @@ ClusterNo BitVector::find() // TODO
 		return 0;
 	}
 
-	for (int j = 0; j < 8; j++) {
-		char mask = 0x01U << (7 - j);
+	for (int j = 0; j < CHAR_BIT; j++) {
+		char mask = 0x01U << (CHAR_BIT - 1 - j);
 		if (!(bits[freeByte] & mask)) {
 			return freeCluster + j;
 		}
 	}
+	exit(420); //check
 	return 0;
 }
 
 BitVector::~BitVector()
 {
-	writeThrough();
+	if(dirty)
+		p->writeCluster(bitVectorId, bits);
 	delete next;
 }

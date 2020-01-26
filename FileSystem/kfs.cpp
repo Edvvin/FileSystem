@@ -18,7 +18,7 @@ KernelFS::KernelFS(Partition* p) {
 	this->p = p;
 	cache = new RealCache(p, p->getNumOfClusters() / 10);
 	bitVect = new BitVector(p);
-	dir = new Directory(bitVect.size());
+	dir = new Directory(bitVect->size());
 }
 
 KernelFS::~KernelFS() {
@@ -41,6 +41,7 @@ char KernelFS::mount(Partition* partition) {
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
 }
+
 char KernelFS::unmount() {
 	if (!isInit) {
 		return 0;
@@ -64,7 +65,6 @@ char KernelFS::unmount() {
 	else
 		LeaveCriticalSection(&KernelFS_CS);
 	return 1;
-	
 }
 
 ClusterNo KernelFS::alloc()
@@ -80,7 +80,6 @@ ClusterNo KernelFS::alloc()
 
 	ClusterNo freeCluster = bitVect->find();
 	bitVect->set(freeCluster);
-	bitVect->writeThrough();
 
 
 	LeaveCriticalSection(&KernelFS_CS);
@@ -100,7 +99,6 @@ void KernelFS::dealloc(ClusterNo target)
 	if (target == 0)
 		exit(12345); // check
 	bitVect->reset(target);
-	bitVect->writeThrough();
 	LeaveCriticalSection(&KernelFS_CS);
 }
 
