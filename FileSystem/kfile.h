@@ -1,8 +1,7 @@
 #pragma once
 #include "file.h"
 #include "part.h"
-
-struct DirDesc;
+#include "kfs.h"
 
 class KernelFile
 {
@@ -14,14 +13,12 @@ class KernelFile
 	int dirtyData, dirtyInd1, dirtyInd2;
 	BytesCnt cursor;
 	BytesCnt sizeOfFile;
-
+	int fileInd;
 	char mode;
 	int cursorLoaded;
-	char fname[20];
-
-
-public:
+	DirDesc dd;
 	char expand();
+public:
 	char write(BytesCnt, char* buffer);
 	BytesCnt read(BytesCnt, char* buffer);
 	char seek(BytesCnt);
@@ -29,6 +26,6 @@ public:
 	char eof();
 	BytesCnt getFileSize();
 	char truncate();
-	KernelFile(DirDesc& dd, char m, char* fname);
+	KernelFile(DirDesc& dd, int fileInd, char m);
 	~KernelFile();
 };

@@ -6,6 +6,8 @@
 #include "rcache.h"
 #include "bitvect.h"
 #include "dir.h"
+#include "kfile.h"
+
 KernelFS* volatile KernelFS::mounted = NULL;
 LONG volatile KernelFS::isInit = 0;
 CRITICAL_SECTION KernelFS::KernelFS_CS;
@@ -72,6 +74,7 @@ char KernelFS::unmount() {
 
 ClusterNo KernelFS::alloc()
 {
+	char zeros[ClusterSize];
 	if (!isInit) {
 		return 0;
 	}
@@ -83,8 +86,7 @@ ClusterNo KernelFS::alloc()
 
 	ClusterNo freeCluster = bitVect->find();
 	bitVect->set(freeCluster);
-
-
+	cache->writeCluster(freeCluster, zeros);
 	LeaveCriticalSection(&KernelFS_CS);
 	return freeCluster;
 }
@@ -117,7 +119,7 @@ char KernelFS::format() {
 	isFormating = 1;
 	if(FCBCnt > 0)
 		SleepConditionVariableCS(&openFilesExist, &KernelFS_CS, INFINITE); // awake when FCBCnt == 0
-	cache->clear(0); //TODO
+	cache->clear(0);
 	bitVect->clear();
 	for (ClusterNo i = 0; i < bitVect->size(); i++)
 	{
@@ -128,23 +130,35 @@ char KernelFS::format() {
 	cache->writeCluster(bitVect->size(), emptyCluster);
 	bitVect->set(bitVect->size());
 	delete [] emptyCluster;
-	dir->setSize(0);
 	isFormating = 0;
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
 }
+
+
 FileCnt KernelFS::readRootDir() {
 	if (!isInit) {
 		return 0;
 	}
-	FileCnt ansr;
 	EnterCriticalSection(&KernelFS_CS);
 	if (mounted == NULL) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-
-	ansr = dir->cntFiles();
+	int i = 0;
+	FileCnt ansr = 0;
+	char zeros[FNAMELEN];
+	memset(zeros, 0, FNAMELEN);
+	while (1) {
+		if (dir->eof(i)) {
+			LeaveCriticalSection(&KernelFS_CS);
+			return 0;
+		}
+		DirDesc dd = dir->getDirDesc(i);
+		if (!memcmp(dd.name, zeros, FNAMELEN))
+			ansr++;
+		i++;
+	}
 
 	LeaveCriticalSection(&KernelFS_CS);
 	return ansr;
@@ -154,17 +168,34 @@ char KernelFS::doesExist(char* fname) {
 	if (!isInit) {
 		return 0;
 	}
-	char ansr;
 	EnterCriticalSection(&KernelFS_CS);
 	if (mounted == NULL) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	DirDesc dd;
-	int ind;
-	if (dir->getDirDesc(fname, &dd, ind))
-		ansr = 1;
-	else ansr = 0;
+	if (fname[0] != '/') {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+	char* dot = strchr(fname, '.');
+	if (!dot) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+	char ansr;
+	int i = 0;
+	while (1) {
+		if(dir->eof(i)) {
+			LeaveCriticalSection(&KernelFS_CS);
+			return 0;
+		}
+		DirDesc dd = dir->getDirDesc(i);
+		if (!strncmp(dd.name, fname + 1, FNAMELEN) && !strncmp(dd.ext, dot + 1, FEXTLEN)) {
+			ansr = 1;
+			break;
+		}
+		i++;
+	}
 
 	LeaveCriticalSection(&KernelFS_CS);
 	return ansr;
@@ -267,24 +298,43 @@ char KernelFS::deleteFile(char* fname) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	if (!openFileTable.count(fname)) {
+
+
+	if (fname[0] != '/') {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
+	char* dot = strchr(fname, '.');
+	if (!dot) {
+		LeaveCriticalSection(&KernelFS_CS);
+		return 0;
+	}
+
 	DirDesc dd;
-	int ind;
-	char exists = dir->getDirDesc(fname, &dd, ind);
-	if (!exists) {
+	int fileInd = 0;
+	while (1) {
+		if (dir->eof(fileInd)) {
+			LeaveCriticalSection(&KernelFS_CS);
+			return 0;
+		}
+		dd = dir->getDirDesc(fileInd);
+		if (!strncmp(dd.name, fname + 1, FNAMELEN) && !strncmp(dd.ext, dot + 1, FEXTLEN)) {
+			break;
+		}
+		fileInd++;
+	}
+
+	if (!openFileTable.count(fileInd)) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
 	}
-	KernelFile* f = new KernelFile(dd, 'w', fname);
-	f->truncate();
-	delete f;
-	LeaveCriticalSection(&KernelFS_CS);
-	dealloc(dd.ind1);
-	EnterCriticalSection(&KernelFS_CS);
-	dir->clearDirDesc(ind);
+
+	KernelFile* kf = new KernelFile(); //TODO THINK ABOUT THIS
+	kf->seek(0);
+	kf->truncate();
+	delete kf;
+	memset(dd.name, 0, FNAMELEN);
+	dir->setDirDesc(fileInd, dd);
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
 }

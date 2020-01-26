@@ -3,7 +3,6 @@
 #include "fs.h"
 #include <windows.h>
 #include "part.h"
-#include <string>
 #include <map>
 
 class Cache;
@@ -26,8 +25,7 @@ class KernelFS {
 	Cache* cache;
 	BitVector* bitVect;
 	Directory* dir;
-	std::map<std::string, PSRWLOCK> openFileTable;
-
+	std::map<int, PSRWLOCK> openFileTable;
 
 	static LONG volatile isInit;
 	static CRITICAL_SECTION KernelFS_CS;

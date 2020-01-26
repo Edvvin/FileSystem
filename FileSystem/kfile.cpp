@@ -1,14 +1,15 @@
 #include "kfile.h"
 #include "kfs.h"
 #include "cache.h"
+#include "dir.h"
 
-
-KernelFile::KernelFile(DirDesc& dd, char m, char* fname) // you forgot to load the ind1
+KernelFile::KernelFile(DirDesc& dd, int fileInd, char m) // you forgot to load the ind1
 {
-	this->ind1Adr = ind1Adr;
+	this->ind1Adr = dd.ind1;
 	this->mode = m;
 	this->sizeOfFile = dd.size;
-	strcpy(this->fname, fname);
+	this->fileInd = fileInd;
+	this->dd = dd;
 	cursorLoaded = 0;
 	dirtyData = 0;
 	dirtyInd2 = 0;
@@ -24,10 +25,12 @@ KernelFile::~KernelFile()
 		KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
 	if (dirtyInd1)
 		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
+	dd.size = sizeOfFile;
+	KernelFS::mounted->dir->setDirDesc(fileInd, dd);
 	if(mode == 'a' || mode == 'w')
-		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fname]);
+		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fileInd]);
 	else
-		ReleaseSRWLockShared(KernelFS::mounted->openFileTable[fname]);
+		ReleaseSRWLockShared(KernelFS::mounted->openFileTable[fileInd]);
 	if (--KernelFS::mounted->FCBCnt == 0) {
 		WakeConditionVariable(&KernelFS::mounted->openFilesExist);
 	}
