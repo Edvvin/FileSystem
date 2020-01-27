@@ -260,8 +260,6 @@ File* KernelFS::open(char* fname, char mode) {
 			InitializeSRWLock(psr);
 			openFileTable[fileInd] = new FileTableEntry(psr);
 		}
-		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockExclusive(psr);
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
@@ -269,26 +267,29 @@ File* KernelFS::open(char* fname, char mode) {
 			ret->myImpl->truncate();
 		FCBCnt++;
 		openFileTable[fileInd]->waitCnt++;
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockExclusive(psr);
 		return ret;
 	}
 	else if (mode == 'a') {
-		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockExclusive(psr);
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(ret->myImpl->getFileSize()); // TODO  think about this
 		FCBCnt++;
 		openFileTable[fileInd]->waitCnt++;
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockExclusive(psr);
 		return ret;
 	}
 	else if (mode == 'r'){
-		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockShared(psr);
+
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
 		FCBCnt++;
 		openFileTable[fileInd]->waitCnt++;
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockShared(psr);
 		return ret;
 	}
 	return NULL;

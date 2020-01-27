@@ -26,6 +26,8 @@ KernelFile::~KernelFile()
 	if (dirtyInd1)
 		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
 
+	EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
+
 	if (mode == 'a' || mode == 'w') {
 		dd.size = sizeOfFile;
 		KernelFS::mounted->dir->setDirDesc(fileInd, dd);
@@ -41,7 +43,7 @@ KernelFile::~KernelFile()
 			KernelFS::mounted->openFileTable.erase(fileInd);
 		}
 	}
-
+	LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 	if (--KernelFS::mounted->FCBCnt == 0) {
 		WakeConditionVariable(&KernelFS::mounted->openFilesExist);
 	}
