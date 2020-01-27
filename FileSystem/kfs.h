@@ -10,9 +10,11 @@ class BitVector;
 class Directory;
 
 struct FileTableEntry {
-	PSRWLOCK lock;
-	int waitCnt;
-	FileTableEntry(PSRWLOCK psr):lock(psr),waitCnt(0) {
+	int rCnt;
+	int wCnt;
+	FileTableEntry():rCnt(0), wCnt(0) {
+	}
+	~FileTableEntry() {
 	}
 };
 
@@ -38,6 +40,7 @@ class KernelFS {
 	static CRITICAL_SECTION KernelFS_CS;
 	static CONDITION_VARIABLE alreadyMounted;
 	static CONDITION_VARIABLE openFilesExist;
+	static CONDITION_VARIABLE rwLocked;
 	KernelFS(Partition* p);
 	~KernelFS();
 public:

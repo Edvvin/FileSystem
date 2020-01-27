@@ -3,7 +3,7 @@
 #include "cache.h"
 #include "dir.h"
 
-KernelFile::KernelFile(DirDesc& dd, int fileInd, char m) // you forgot to load the ind1
+KernelFile::KernelFile(DirDesc& dd, int fileInd, char m)
 {
 	this->ind1Adr = dd.ind1;
 	this->mode = m;
@@ -20,6 +20,7 @@ KernelFile::KernelFile(DirDesc& dd, int fileInd, char m) // you forgot to load t
 
 KernelFile::~KernelFile()
 {
+	EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 	if (dirtyData)
 		KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
 	if(dirtyInd2)
@@ -27,27 +28,27 @@ KernelFile::~KernelFile()
 	if (dirtyInd1)
 		KernelFS::mounted->cache->writeCluster(ind1Adr, (char*)ind1);
 
-	EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
-
 	if (mode == 'a' || mode == 'w') {
 		dd.size = sizeOfFile;
 		KernelFS::mounted->dir->setDirDesc(fileInd, dd);
-		ReleaseSRWLockExclusive(KernelFS::mounted->openFileTable[fileInd]->lock);
+		if (--KernelFS::mounted->openFileTable[fileInd]->wCnt == 0)
+			WakeAllConditionVariable(&KernelFS::rwLocked);
 	}
 	else {
-		ReleaseSRWLockShared(KernelFS::mounted->openFileTable[fileInd]->lock);
+		if (--KernelFS::mounted->openFileTable[fileInd]->rCnt == 0)
+			WakeAllConditionVariable(&KernelFS::rwLocked);
 	}
 
-	if (KernelFS::mounted->openFileTable.count(fileInd)) {
-		if (--KernelFS::mounted->openFileTable[fileInd]->waitCnt == 0) {
-			delete KernelFS::mounted->openFileTable[fileInd];
-			KernelFS::mounted->openFileTable.erase(fileInd);
-		}
+	if (KernelFS::mounted->openFileTable[fileInd]->wCnt == 0 &&
+		KernelFS::mounted->openFileTable[fileInd]->rCnt == 0) {
+		delete KernelFS::mounted->openFileTable[fileInd];
+		KernelFS::mounted->openFileTable.erase(fileInd);
 	}
-	LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
+	
 	if (--KernelFS::mounted->FCBCnt == 0) {
 		WakeConditionVariable(&KernelFS::mounted->openFilesExist);
 	}
+	LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 }
 
 
@@ -145,7 +146,6 @@ char KernelFile::truncate() {
 	int a = r / (B*C); // ind1Pointer
 	int b = (r - a * B*C) / C; //ind2Pointer
 	int c = r - a * B*C - b * C; //dataBytePointer
-	
 
 	b += 1;
 	while (b < entries && ind2[b] != (ClusterNo)0) {

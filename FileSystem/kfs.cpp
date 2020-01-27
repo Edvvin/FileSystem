@@ -13,6 +13,7 @@ LONG volatile KernelFS::isInit = 0;
 CRITICAL_SECTION KernelFS::KernelFS_CS;
 CONDITION_VARIABLE KernelFS::alreadyMounted;
 CONDITION_VARIABLE KernelFS::openFilesExist;
+CONDITION_VARIABLE KernelFS::rwLocked;
 
 KernelFS::KernelFS(Partition* p) {
 	FCBCnt = 0;
@@ -35,6 +36,7 @@ char KernelFS::mount(Partition* partition) {
 		InitializeCriticalSection(&KernelFS_CS);
 		InitializeConditionVariable(&alreadyMounted);
 		InitializeConditionVariable(&openFilesExist);
+		InitializeConditionVariable(&rwLocked);
 	}
 	EnterCriticalSection(&KernelFS_CS);
 	if (mounted != NULL) {
@@ -231,71 +233,80 @@ File* KernelFS::open(char* fname, char mode) {
 		return 0;
 	}
 
+
+	FCBCnt++;
+
 	// setting up the FileTableEntry
-	PSRWLOCK psr = 0;
-	if (exists) {
-		if (openFileTable.count(fileInd))
-		{
-			psr = openFileTable[fileInd]->lock;
+	if (exists && openFileTable.count(fileInd))
+	{
+		if (mode == 'w' || mode == 'a') {
+			while (1) {
+				if (!openFileTable.count(fileInd))
+					break;
+				if (openFileTable[fileInd]->wCnt || openFileTable[fileInd]->rCnt)
+					SleepConditionVariableCS(&rwLocked, &KernelFS_CS, INFINITE);
+				else
+					break;
+			}
 		}
-		else
-		{
-			psr = new SRWLOCK();
-			InitializeSRWLock(psr);
-			openFileTable[fileInd] = new FileTableEntry(psr);
+		else if (mode == 'r'){
+			while (1) {
+				if (!openFileTable.count(fileInd))
+					break;
+				if (openFileTable[fileInd]->wCnt)
+					SleepConditionVariableCS(&rwLocked, &KernelFS_CS, INFINITE);
+				else
+					break;
+			}
 		}
+		dir->find(fname + 1, fileInd, exists);
+		if(!exists || !openFileTable.count(fileInd))
+			openFileTable[fileInd] = new FileTableEntry();
 	}
+	else
+	{
+		openFileTable[fileInd] = new FileTableEntry();
+	}
+
 	// setting up the dirdesc
 	DirDesc dd;
 	if(exists)
 		dd = dir->getDirDesc(fileInd);
 
-	
-
 	if (mode == 'w') {
 		if (!exists) {
 			fileInd = dir->addFile(fname+1);
 			dd = dir->getDirDesc(fileInd);
-			psr = new SRWLOCK();
-			InitializeSRWLock(psr);
-			openFileTable[fileInd] = new FileTableEntry(psr);
 		}
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
 		if (exists)
 			ret->myImpl->truncate();
-		FCBCnt++;
-		openFileTable[fileInd]->waitCnt++;
+		openFileTable[fileInd]->wCnt++;
 		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockExclusive(psr);
 		return ret;
 	}
 	else if (mode == 'a') {
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(ret->myImpl->getFileSize()); // TODO  think about this
-		FCBCnt++;
-		openFileTable[fileInd]->waitCnt++;
+		openFileTable[fileInd]->wCnt++;
 		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockExclusive(psr);
 		return ret;
 	}
 	else if (mode == 'r'){
-
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
-		FCBCnt++;
-		openFileTable[fileInd]->waitCnt++;
+		openFileTable[fileInd]->rCnt++;
 		LeaveCriticalSection(&KernelFS_CS);
-		AcquireSRWLockShared(psr);
 		return ret;
 	}
 	return NULL;
 }
 
-char KernelFS::deleteFile(char* fname) {
+char KernelFS::deleteFile(char* fname) { //TODO THINK ABOUT THIS
 	if (!isInit) {
 		return 0;
 	}
