@@ -127,6 +127,7 @@ char KernelFS::format() {
 		SleepConditionVariableCS(&openFilesExist, &KernelFS_CS, INFINITE); // awake when FCBCnt == 0
 	cache->clear(0);
 	bitVect->clear();
+	delete dir;
 	for (ClusterNo i = 0; i < bitVect->size(); i++)
 	{
 		bitVect->set(i);
@@ -136,6 +137,10 @@ char KernelFS::format() {
 	cache->writeCluster(bitVect->size(), emptyCluster);
 	bitVect->set(bitVect->size());
 	delete [] emptyCluster;
+	dir = new Directory(bitVect->size());
+	DirDesc zerodd;
+	memset(&zerodd, 0, sizeof(DirDesc));
+	dir->setDirDesc(0, zerodd);
 	isFormating = 0;
 	LeaveCriticalSection(&KernelFS_CS);
 	return 1;
@@ -215,7 +220,7 @@ File* KernelFS::open(char* fname, char mode) {
 
 	int fileInd = 0;
 	int exists = 1;
-	dir->find(fname, fileInd, exists);
+	dir->find(fname+1, fileInd, exists);
 	if(exists < 0) {
 		LeaveCriticalSection(&KernelFS_CS);
 		return 0;
@@ -234,6 +239,7 @@ File* KernelFS::open(char* fname, char mode) {
 	}
 	else 
 	{
+		psr = new SRWLOCK();
 		InitializeSRWLock(psr);
 		openFileTable[fileInd] = new FileTableEntry(psr);
 	}
@@ -249,6 +255,7 @@ File* KernelFS::open(char* fname, char mode) {
 		AcquireSRWLockExclusive(psr);
 		if (!exists) {
 			fileInd = dir->addFile(fname);
+			dd = dir->getDirDesc(fileInd);
 		}
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);

@@ -190,8 +190,8 @@ char KernelFile::expand()
 	int a = r / (B*C); // ind1Pointer
 	int b = (r - a * B*C) / C; //ind2Pointer
 	int c = r - a * B*C - b * C; //dataBytePointer
-	if (cursorLoaded)
-		exit(333); //check
+	//if (cursorLoaded)
+		//exit(333); //check
 	if (c == 0) {
 		if (b == 0) {
 			ClusterNo newInd2 = KernelFS::mounted->alloc();

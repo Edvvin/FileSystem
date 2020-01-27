@@ -85,7 +85,7 @@ ClusterNo BitVector::find()
 
 	for (int j = 0; j < CHAR_BIT; j++) {
 		char mask = 0x01U << (CHAR_BIT - 1 - j);
-		if (!(bits[freeByte] & mask)) {
+		if (!(freeByte & mask)) {
 			return freeCluster + j;
 		}
 	}

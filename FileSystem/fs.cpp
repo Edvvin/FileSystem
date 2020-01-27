@@ -42,7 +42,7 @@ File* FS::open(char* fname, char mode) {
 	if (KernelFS::mounted == NULL) {
 		return 0;
 	}
-	return myImpl->open(fname, mode);
+	return KernelFS::mounted->open(fname, mode);
 }
 
 char FS::deleteFile(char* fname) {
