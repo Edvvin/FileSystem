@@ -54,6 +54,7 @@ Directory::Directory(ClusterNo ind1Adr)
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
+	KernelFS::mounted->cache->readCluster(ind1Adr, (char*)ind1);
 	seek(0);
 }
 

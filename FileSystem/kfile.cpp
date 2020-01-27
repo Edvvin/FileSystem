@@ -14,6 +14,7 @@ KernelFile::KernelFile(DirDesc& dd, int fileInd, char m) // you forgot to load t
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
+	KernelFS::mounted->cache->readCluster(ind1Adr, (char*)ind1);
 }
 
 
@@ -209,5 +210,6 @@ char KernelFile::expand()
 		dirtyInd2 = 1;
 		dirtyData = 0;
 	}
+	sizeOfFile++;
 	return 1;
 }
