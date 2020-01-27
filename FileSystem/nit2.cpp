@@ -75,6 +75,8 @@ DWORD WINAPI nit2run() {
 		char c; BytesCnt cnt = src->getFileSize() - size;
 		while (!src->eof() && cnt-- > 0) {
 			src->read(1, &c);
+			if (cnt == 100000)
+				c = c;
 			dst->write(1, &c);
 		}
 		wait(mutex); cout << threadName << ": Prepisana druga polovina '" << filepath << "' u '" << filepath1 << "'" << endl; signal(mutex);

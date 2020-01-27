@@ -20,8 +20,8 @@ KernelFS::KernelFS(Partition* p) {
 	isFormating = 0;
 	this->p = p;
 	mounted = this;
-	//cache = new RealCache(p, p->getNumOfClusters() / 10);
-	cache = new Cache(p);
+	cache = new RealCache(p, p->getNumOfClusters() / 10);
+	//cache = new Cache(p);
 	bitVect = new BitVector(p);
 	dir = new Directory(bitVect->size());
 }
