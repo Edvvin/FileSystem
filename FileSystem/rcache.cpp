@@ -99,6 +99,7 @@ void RealCache::clear(int doWriteBack)
 		dirty[i] = 0;
 		clocks[i] = -1;
 	}
+	remaining = size;
 }
 
 RealCache::~RealCache()

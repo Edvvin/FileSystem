@@ -233,30 +233,35 @@ File* KernelFS::open(char* fname, char mode) {
 
 	// setting up the FileTableEntry
 	PSRWLOCK psr = 0;
-	if (openFileTable.count(fileInd)) 
-	{
-		psr = openFileTable[fileInd]->lock;
+	if (exists) {
+		if (openFileTable.count(fileInd))
+		{
+			psr = openFileTable[fileInd]->lock;
+		}
+		else
+		{
+			psr = new SRWLOCK();
+			InitializeSRWLock(psr);
+			openFileTable[fileInd] = new FileTableEntry(psr);
+		}
 	}
-	else 
-	{
-		psr = new SRWLOCK();
-		InitializeSRWLock(psr);
-		openFileTable[fileInd] = new FileTableEntry(psr);
-	}
-
 	// setting up the dirdesc
 	DirDesc dd;
 	if(exists)
 		dd = dir->getDirDesc(fileInd);
 
-	LeaveCriticalSection(&KernelFS_CS);
+	
 
 	if (mode == 'w') {
-		AcquireSRWLockExclusive(psr);
 		if (!exists) {
-			fileInd = dir->addFile(fname);
+			fileInd = dir->addFile(fname+1);
 			dd = dir->getDirDesc(fileInd);
+			psr = new SRWLOCK();
+			InitializeSRWLock(psr);
+			openFileTable[fileInd] = new FileTableEntry(psr);
 		}
+		LeaveCriticalSection(&KernelFS_CS);
+		AcquireSRWLockExclusive(psr);
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
 		ret->myImpl->seek(0);
@@ -266,7 +271,8 @@ File* KernelFS::open(char* fname, char mode) {
 		openFileTable[fileInd]->waitCnt++;
 		return ret;
 	}
-	else if (mode = 'a') {
+	else if (mode == 'a') {
+		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockExclusive(psr);
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);
@@ -276,6 +282,7 @@ File* KernelFS::open(char* fname, char mode) {
 		return ret;
 	}
 	else if (mode == 'r'){
+		LeaveCriticalSection(&KernelFS_CS);
 		AcquireSRWLockShared(psr);
 		File* ret = new File();
 		ret->myImpl = new KernelFile(dd, fileInd, mode);

@@ -71,7 +71,7 @@ ClusterNo BitVector::find()
 	ClusterNo freeCluster = 0;
 	ClusterNo i;
 	for (i = 0; i < ClusterSize; i++) {
-		if (bits[i] != 0xFF) { // index and bitvector clusters must be set to 1 for this to work
+		if (bits[i] != (char)-1) { // index and bitvector clusters must be set to 1 for this to work
 			freeByte = bits[i];
 			freeCluster = i * CHAR_BIT;
 			break;
