@@ -15,7 +15,7 @@
 
 using namespace std;
 
-extern HANDLE nit1,nit2;
+extern HANDLE nit1, nit2;
 extern DWORD ThreadID;
 
 extern HANDLE mutex;

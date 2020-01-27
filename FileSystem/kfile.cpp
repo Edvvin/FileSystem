@@ -14,7 +14,9 @@ KernelFile::KernelFile(DirDesc& dd, int fileInd, char m)
 	dirtyData = 0;
 	dirtyInd2 = 0;
 	dirtyInd1 = 0;
+	EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 	KernelFS::mounted->cache->readCluster(ind1Adr, (char*)ind1);
+	LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 }
 
 
@@ -88,14 +90,22 @@ char KernelFile::seek(BytesCnt r) {
 
 	if (!cursorLoaded || a != ind1Cursor) {
 		if (cursorLoaded) {
-			if(dirtyData)
+			if (dirtyData) {
+				EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 				KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
-			if(dirtyInd2)
+				LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
+			}
+			if (dirtyInd2) {
+				EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 				KernelFS::mounted->cache->writeCluster(ind1[ind1Cursor], (char*)ind2);
+				LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
+			}
 		}
 		if (ind1[a] && ind2[b]) {
+			EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 			KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
 			KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+			LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 			cursorLoaded = 1;
 		}
 		else {
@@ -105,10 +115,16 @@ char KernelFile::seek(BytesCnt r) {
 		dirtyInd2 = 0;
 	}
 	else if (b != ind2Cursor) {
-		if(dirtyData)
+		if (dirtyData) {
+			EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 			KernelFS::mounted->cache->writeCluster(ind2[ind2Cursor], (char*)data);
-		if (ind2[b])
+			LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
+		}
+		if (ind2[b]) {
+			EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 			KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+			LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
+		}
 		else
 			cursorLoaded = 0;
 		dirtyData = 0;
@@ -160,7 +176,9 @@ char KernelFile::truncate() {
 	a += 1;
 	while (a < entries && ind1[a] != (ClusterNo)0) {
 		b = 0;
+		EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 		KernelFS::mounted->cache->readCluster(ind1[a], (char*)tempInd2);
+		LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 		while (b < entries && tempInd2[b] != (ClusterNo)0) {
 			KernelFS::mounted->dealloc(tempInd2[b]);
 			b++;
@@ -200,12 +218,16 @@ char KernelFile::expand()
 			ClusterNo newInd2 = KernelFS::mounted->alloc();
 			ind1[a] = newInd2;
 			dirtyInd1 = 1;
+			EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 			KernelFS::mounted->cache->readCluster(ind1[a], (char*)ind2);
+			LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 			dirtyInd2 = 0;
 		}
 		ClusterNo newData = KernelFS::mounted->alloc();
 		ind2[b] = newData;
+		EnterCriticalSection(&KernelFS::mounted->KernelFS_CS);
 		KernelFS::mounted->cache->readCluster(ind2[b], (char*)data);
+		LeaveCriticalSection(&KernelFS::mounted->KernelFS_CS);
 		cursorLoaded = 1;
 		dirtyInd2 = 1;
 		dirtyData = 0;

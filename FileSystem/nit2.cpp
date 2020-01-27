@@ -2,7 +2,7 @@
 
 static char threadName[] = "Nit2";
 
-DWORD WINAPI nit2run(){
+DWORD WINAPI nit2run() {
 	wait(sem12);	//ceka nit1
 	signal(sem21); // signalizira nit1
 	{
@@ -28,33 +28,33 @@ DWORD WINAPI nit2run(){
 		wait(mutex); cout << threadName << ": Zatvoren fajl '" << filepath << "'" << endl; signal(mutex);
 
 	}
-	wait(mutex); cout<< threadName << ": wait 1"<<endl; signal(mutex);
+	wait(mutex); cout << threadName << ": wait 1" << endl; signal(mutex);
 	wait(sem12); // ceka nit 1	 
 	{
 		wait(mutex); cout << threadName << ": Broj fajlova na disku je " << FS::readRootDir() << endl; signal(mutex);
 	}
 
 	{
-		char filepath[]="/fajl2.dat";
-		File *f=FS::open(filepath,'r');
-		wait(mutex); cout<< threadName << ": Otvoren fajl " << filepath << ""<<endl; signal(mutex);
+		char filepath[] = "/fajl2.dat";
+		File *f = FS::open(filepath, 'r');
+		wait(mutex); cout << threadName << ": Otvoren fajl " << filepath << "" << endl; signal(mutex);
 		delete f;
-		wait(mutex); cout<< threadName << ": Zatvoren fajl " << filepath << ""<<endl; signal(mutex);
+		wait(mutex); cout << threadName << ": Zatvoren fajl " << filepath << "" << endl; signal(mutex);
 	}
 
 	{
-		char filepath[]="/fajl2.dat";
-		File *f=FS::open(filepath,'r');
-		wait(mutex); cout<< threadName << ": Otvoren fajl " << filepath << ""<<endl; signal(mutex);
-		ofstream fout("izlaz1.dat", ios::out|ios::binary);
-		char *buff=new char[f->getFileSize()];
-		f->read(f->getFileSize(),buff);
-		fout.write(buff,f->getFileSize());
-		wait(mutex); cout<< threadName << ": Upisan '" << filepath << "' u fajl os domacina 'izlaz1.dat'"<<endl; signal(mutex);
-		delete [] buff;
+		char filepath[] = "/fajl2.dat";
+		File *f = FS::open(filepath, 'r');
+		wait(mutex); cout << threadName << ": Otvoren fajl " << filepath << "" << endl; signal(mutex);
+		ofstream fout("izlaz1.dat", ios::out | ios::binary);
+		char *buff = new char[f->getFileSize()];
+		f->read(f->getFileSize(), buff);
+		fout.write(buff, f->getFileSize());
+		wait(mutex); cout << threadName << ": Upisan '" << filepath << "' u fajl os domacina 'izlaz1.dat'" << endl; signal(mutex);
+		delete[] buff;
 		fout.close();
 		delete f;
-		wait(mutex); cout<< threadName << ": Zatvoren fajl " << filepath << ""<<endl; signal(mutex);
+		wait(mutex); cout << threadName << ": Zatvoren fajl " << filepath << "" << endl; signal(mutex);
 	}
 
 	{
@@ -109,7 +109,7 @@ DWORD WINAPI nit2run(){
 	}
 
 
-	wait(mutex); cout<< threadName << ": Zavrsena!"<<endl; signal(mutex);
+	wait(mutex); cout << threadName << ": Zavrsena!" << endl; signal(mutex);
 	signal(semMain);
 	return 0;
 }
